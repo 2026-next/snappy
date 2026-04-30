@@ -45,6 +45,44 @@ describe('app routing', () => {
     expect(useAuthStore.getState().provider).toBe('kakao')
   })
 
+  it('renders the album-create form on /albums/new', async () => {
+    renderRoute('/albums/new')
+
+    expect(
+      await screen.findByRole('heading', { name: /새 앨범 만들기/i }),
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByPlaceholderText(/우리의 소중한 결혼식/i),
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /공유 링크 생성/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('shows the share view after creating an album', async () => {
+    const user = userEvent.setup()
+    renderRoute('/albums/new')
+
+    const nameInput = await screen.findByPlaceholderText(
+      /우리의 소중한 결혼식/i,
+    )
+    await user.type(nameInput, '지나와 민수의 결혼식')
+
+    await user.click(
+      await screen.findByRole('button', { name: /공유 링크 생성/i }),
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: /지나와 민수의 결혼식/i }),
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /링크 복사/i }),
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /홈으로 돌아가기/i }),
+    ).toBeInTheDocument()
+  })
+
   it('renders the not-found route for unknown paths', async () => {
     renderRoute('/missing')
 
