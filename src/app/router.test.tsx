@@ -10,7 +10,7 @@ describe('app routing', () => {
     useAuthStore.getState().logout()
   })
 
-  it('renders the welcome view on the home route by default', async () => {
+  it('redirects unauthenticated users from / to /auth', async () => {
     renderRoute('/')
 
     expect(
@@ -19,14 +19,22 @@ describe('app routing', () => {
     expect(
       await screen.findByRole('button', { name: /kakao로 시작하기/i }),
     ).toBeInTheDocument()
+  })
+
+  it('renders the auth view directly on /auth', async () => {
+    renderRoute('/auth')
+
+    expect(
+      await screen.findByRole('heading', { name: /snappy/i }),
+    ).toBeInTheDocument()
     expect(
       await screen.findByRole('button', { name: /google로 시작하기/i }),
     ).toBeInTheDocument()
   })
 
-  it('switches to the album prompt view after logging in', async () => {
+  it('navigates to / and shows the home view after logging in from /auth', async () => {
     const user = userEvent.setup()
-    renderRoute('/')
+    renderRoute('/auth')
 
     await user.click(
       await screen.findByRole('button', { name: /kakao로 시작하기/i }),
@@ -38,11 +46,17 @@ describe('app routing', () => {
     expect(
       await screen.findByRole('button', { name: /새 앨범 만들기/i }),
     ).toBeInTheDocument()
-    expect(
-      await screen.findByRole('button', { name: /내 사진 관리하기/i }),
-    ).toBeInTheDocument()
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
     expect(useAuthStore.getState().provider).toBe('kakao')
+  })
+
+  it('redirects authenticated users from /auth back to /', async () => {
+    useAuthStore.getState().loginWith('google')
+    renderRoute('/auth')
+
+    expect(
+      await screen.findByRole('heading', { name: /수집해볼까요/i }),
+    ).toBeInTheDocument()
   })
 
   it('renders the album-create form on /albums/new', async () => {
