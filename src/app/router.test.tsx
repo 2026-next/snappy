@@ -1,40 +1,48 @@
 import { screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { afterEach, describe, expect, it } from 'vitest'
 
-import { useTodoPreviewStore } from '@/features/todo-preview/model/todo-preview-store'
+import { useAuthStore } from '@/shared/auth/use-auth-store'
 import { renderRoute } from '@/test/render'
 
 describe('app routing', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
-    useTodoPreviewStore.getState().reset()
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          userId: 1,
-          id: 1,
-          title: 'delectus aut autem',
-          completed: false,
-        }),
-        {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-      ),
-    )
+  afterEach(() => {
+    useAuthStore.getState().logout()
   })
 
-  it('renders the home route', async () => {
+  it('renders the welcome view on the home route by default', async () => {
     renderRoute('/')
 
     expect(
-      await screen.findByRole('heading', {
-        name: /snappy project architecture/i,
-      }),
+      await screen.findByRole('heading', { name: /snappy/i }),
     ).toBeInTheDocument()
-    expect(await screen.findByText(/sample api todo/i)).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /kakao로 시작하기/i }),
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /google로 시작하기/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('switches to the album prompt view after logging in', async () => {
+    const user = userEvent.setup()
+    renderRoute('/')
+
+    await user.click(
+      await screen.findByRole('button', { name: /kakao로 시작하기/i }),
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: /수집해볼까요/i }),
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /새 앨범 만들기/i }),
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /내 사진 관리하기/i }),
+    ).toBeInTheDocument()
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
+    expect(useAuthStore.getState().provider).toBe('kakao')
   })
 
   it('renders the not-found route for unknown paths', async () => {
