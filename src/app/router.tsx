@@ -15,6 +15,23 @@ export const routeTree: RouteObject[] = [
         index: true,
         element: <HomePage />,
       },
+
+      // Guest Routes
+      {
+        path: 'g/:eventId',
+        children: [
+          // TODO: Guest Routes
+        ],
+      },
+
+      // Host Routes
+      {
+        path: 'host',
+        children: [
+          // TODO: Host Routes
+        ],
+      },
+
       {
         path: 'auth',
         element: <AuthPage />,
