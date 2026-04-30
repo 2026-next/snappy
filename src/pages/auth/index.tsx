@@ -1,14 +1,14 @@
 import { Navigate } from 'react-router-dom'
 
 import { useAuthStore } from '@/shared/auth/use-auth-store'
-import { HomeView } from '@/widgets/home/ui/home-view'
+import { AuthView } from '@/widgets/auth/ui/auth-view'
 
-export function HomePage() {
+export function AuthPage() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
 
-  if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />
   }
 
-  return <HomeView />
+  return <AuthView />
 }
