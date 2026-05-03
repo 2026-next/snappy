@@ -4,6 +4,7 @@ import { App } from '@/app/App'
 import { AlbumCreatePage } from '@/pages/album-create'
 import { AuthPage } from '@/pages/auth'
 import { HomePage } from '@/pages/home'
+import { HostAlbumPhotosPage } from '@/pages/host/album-photos'
 import { NotFoundPage } from '@/pages/not-found'
 
 export const routeTree: RouteObject[] = [
@@ -28,7 +29,10 @@ export const routeTree: RouteObject[] = [
       {
         path: 'host',
         children: [
-          // TODO: Host Routes
+          {
+            path: 'albums/:albumId',
+            element: <HostAlbumPhotosPage />,
+          },
         ],
       },
 
