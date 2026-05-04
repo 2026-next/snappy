@@ -1,3 +1,5 @@
+import { useNavigate, useParams } from 'react-router-dom'
+
 import { type CategoryKey } from '@/widgets/host-album-photos/model/category'
 
 import { CheckerBackground } from './checker-background'
@@ -28,9 +30,16 @@ export function PhotoGrid({
   onDelete,
   onToggleFavorite,
 }: PhotoGridProps) {
+  const navigate = useNavigate()
+  const { albumId } = useParams()
   const isFavoriteView = category === 'favorite'
   const headerIcon = isFavoriteView ? HEART_HEADER : PHOTO_ICON
   const headerLabel = isFavoriteView ? '즐겨찾기한 사진' : '업로드된 사진'
+
+  const handleOpenPhoto = (photoId: string) => {
+    if (!albumId) return
+    navigate(`/host/albums/${albumId}/photos/${photoId}`)
+  }
 
   return (
     <section className="flex flex-col gap-2">
@@ -64,15 +73,22 @@ export function PhotoGrid({
         {photos.map((photo) => (
           <li key={photo.id}>
             <div className="relative aspect-square w-full overflow-hidden rounded-[4px] border border-[#d7dbe2] bg-[#f4f6fa]">
-              {photo.src ? (
-                <img
-                  src={photo.src}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              ) : (
-                <CheckerBackground />
-              )}
+              <button
+                type="button"
+                onClick={() => handleOpenPhoto(photo.id)}
+                aria-label="사진 자세히 보기"
+                className="absolute inset-0 h-full w-full"
+              >
+                {photo.src ? (
+                  <img
+                    src={photo.src}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : (
+                  <CheckerBackground />
+                )}
+              </button>
               <button
                 type="button"
                 onClick={() => onToggleFavorite(photo.id)}
