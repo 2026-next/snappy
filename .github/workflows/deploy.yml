@@ -48,8 +48,9 @@ jobs:
           set -euo pipefail
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s' "${{ secrets.SNAPPY_DEPLOY_KEY }}" > ~/.ssh/snappy_deploy_key
+          printf '%s\n' "${{ secrets.SNAPPY_DEPLOY_KEY }}" | tr -d '\r' > ~/.ssh/snappy_deploy_key
           chmod 600 ~/.ssh/snappy_deploy_key
+          ssh-keygen -y -f ~/.ssh/snappy_deploy_key >/dev/null
           printf '%s\n' "${{ secrets.SNAPPY_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
