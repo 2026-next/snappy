@@ -23,10 +23,23 @@ describe('app routing', () => {
         assign: assignSpy,
       },
     })
+    // Default fetch stub so AuthBootstrapper's /auth/me call (and any other
+    // unrelated request from a previous test) never hits the real network.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('{}', {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    )
   })
 
   afterEach(() => {
     useAuthStore.getState().logout()
+    vi.unstubAllGlobals()
   })
 
   it('redirects unauthenticated users from / to /auth', async () => {
@@ -99,6 +112,28 @@ describe('app routing', () => {
   })
 
   it('shows the share view after creating an album', async () => {
+    useAuthStore.getState().setTokens(TOKENS, 'google')
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.endsWith('/event/create')) {
+        return new Response(
+          JSON.stringify({
+            id: 'event-1',
+            name: '지나와 민수의 결혼식',
+            eventDate: '2026-05-04T00:00:00.000Z',
+            createdAt: '2026-05-04T00:00:00.000Z',
+            updatedAt: '2026-05-04T00:00:00.000Z',
+            ownerId: 'user-1',
+            accessCode: 'access_event-1',
+            qrLink: 'https://snappyku.site/guest/join/access_event-1',
+          }),
+          { status: 201, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      return new Response('{}', { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
     const user = userEvent.setup()
     renderRoute('/albums/new')
 
@@ -120,6 +155,12 @@ describe('app routing', () => {
     expect(
       await screen.findByRole('button', { name: /홈으로 돌아가기/i }),
     ).toBeInTheDocument()
+    expect(
+      await screen.findByRole('link', {
+        name: /snappyku\.site\/guest\/join\/access_event-1/i,
+      }),
+    ).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalled()
   })
 
   it('renders the not-found route for unknown paths', async () => {

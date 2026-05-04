@@ -1,5 +1,7 @@
 import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 
+import type { CreateEventInput } from '@/shared/api/event'
+
 const ALBUM_COVER = '/images/album-cover-sample.png'
 const PENCIL_ICON = '/icons/pencil.svg'
 const LINK_ICON = '/icons/link.svg'
@@ -13,16 +15,17 @@ const toLocalIsoDate = (date: Date) => {
   return `${year}-${month}-${day}`
 }
 
-export type AlbumCreateInput = {
-  name: string
-  eventDate: string
-}
-
 type AlbumCreateFormProps = {
-  onCreate: (input: AlbumCreateInput) => void
+  onCreate: (input: CreateEventInput) => void
+  isSubmitting?: boolean
+  errorMessage?: string | null
 }
 
-export function AlbumCreateForm({ onCreate }: AlbumCreateFormProps) {
+export function AlbumCreateForm({
+  onCreate,
+  isSubmitting = false,
+  errorMessage = null,
+}: AlbumCreateFormProps) {
   const today = useMemo(() => toLocalIsoDate(new Date()), [])
   const [name, setName] = useState('')
   const [eventDate, setEventDate] = useState(today)
@@ -36,11 +39,16 @@ export function AlbumCreateForm({ onCreate }: AlbumCreateFormProps) {
     setEventDate(event.target.value)
   }
 
+  const isDateValid = Boolean(eventDate) && eventDate >= today
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!eventDate || eventDate < today) return
+    if (isSubmitting || !isDateValid) return
     onCreate({ name, eventDate })
   }
+
+  const isDisabled =
+    isSubmitting || name.trim().length === 0 || !isDateValid
 
   return (
     <form
@@ -115,12 +123,22 @@ export function AlbumCreateForm({ onCreate }: AlbumCreateFormProps) {
         </div>
       </div>
 
+      {errorMessage ? (
+        <p
+          role="alert"
+          className="mt-[8px] rounded-xl bg-[#fdecec] px-4 py-3 text-[13px] text-[#c0392b]"
+        >
+          {errorMessage}
+        </p>
+      ) : null}
+
       <button
         type="submit"
-        className="mt-[8px] flex h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-[#222226] text-[18px] font-medium text-white transition-opacity hover:opacity-90 active:opacity-80"
+        disabled={isDisabled}
+        className="mt-[8px] flex h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-[#222226] text-[18px] font-medium text-white transition-opacity hover:opacity-90 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <img src={LINK_ICON} alt="" className="h-6 w-6" aria-hidden="true" />
-        공유 링크 생성
+        {isSubmitting ? '만드는 중...' : '공유 링크 생성'}
       </button>
     </form>
   )
