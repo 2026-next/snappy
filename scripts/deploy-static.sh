@@ -8,6 +8,7 @@ SSH_USER="${SNAPPY_SSH_USER:?SNAPPY_SSH_USER is required}"
 DEPLOY_PATH="${SNAPPY_DEPLOY_PATH:?SNAPPY_DEPLOY_PATH is required}"
 SSH_PORT="${SNAPPY_SSH_PORT:-22}"
 SSH_KEY_PATH="${SNAPPY_SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
+SSH_KEY_PATH="${SSH_KEY_PATH/#\~/$HOME}"
 
 if [[ ! -d "$SOURCE_DIR" ]]; then
   printf 'Source directory not found: %s\n' "$SOURCE_DIR" >&2
