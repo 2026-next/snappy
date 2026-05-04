@@ -5,6 +5,8 @@ import { AlbumCreatePage } from '@/pages/album-create'
 import { AuthPage } from '@/pages/auth'
 import { HomePage } from '@/pages/home'
 import { HostAlbumPhotosPage } from '@/pages/host/album-photos'
+import { HostPhotoDetailPage } from '@/pages/host/photo-detail'
+import { HostPhotoSavePage } from '@/pages/host/photo-save'
 import { NotFoundPage } from '@/pages/not-found'
 
 export const routeTree: RouteObject[] = [
@@ -32,6 +34,14 @@ export const routeTree: RouteObject[] = [
           {
             path: 'albums/:albumId',
             element: <HostAlbumPhotosPage />,
+          },
+          {
+            path: 'albums/:albumId/photos/:photoId',
+            element: <HostPhotoDetailPage />,
+          },
+          {
+            path: 'albums/:albumId/photos/:photoId/save',
+            element: <HostPhotoSavePage />,
           },
         ],
       },
