@@ -1,5 +1,11 @@
+import { type CategoryKey } from '@/widgets/host-album-photos/model/category'
+
+import { CheckerBackground } from './checker-background'
+
 const PHOTO_ICON = '/icons/photo.svg'
-const HEART_ICON = '/icons/heart.svg'
+const HEART_PHOTO_INACTIVE = '/icons/heart.svg'
+const HEART_PHOTO_ACTIVE = '/icons/heart-filled.svg'
+const HEART_HEADER = '/icons/heart-outline.svg'
 
 export type PhotoItem = {
   id: string
@@ -8,6 +14,7 @@ export type PhotoItem = {
 }
 
 type PhotoGridProps = {
+  category: CategoryKey
   photos: PhotoItem[]
   totalCount: number
   onDelete: () => void
@@ -15,24 +22,29 @@ type PhotoGridProps = {
 }
 
 export function PhotoGrid({
+  category,
   photos,
   totalCount,
   onDelete,
   onToggleFavorite,
 }: PhotoGridProps) {
+  const isFavoriteView = category === 'favorite'
+  const headerIcon = isFavoriteView ? HEART_HEADER : PHOTO_ICON
+  const headerLabel = isFavoriteView ? '즐겨찾기한 사진' : '업로드된 사진'
+
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-[2px]">
             <img
-              src={PHOTO_ICON}
+              src={headerIcon}
               alt=""
               className="h-[17px] w-[17px]"
               aria-hidden="true"
             />
             <p className="text-[12px] font-semibold leading-[1.4] tracking-[-0.24px] text-[#222226]">
-              업로드된 사진
+              {headerLabel}
             </p>
           </div>
           <p className="text-[12px] leading-[1.4] tracking-[-0.24px] text-[#a2a5ad]">
@@ -59,16 +71,7 @@ export function PhotoGrid({
                   className="absolute inset-0 h-full w-full object-cover"
                 />
               ) : (
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0"
-                  style={{
-                    backgroundImage:
-                      'linear-gradient(45deg, #e6eaf0 25%, transparent 25%), linear-gradient(-45deg, #e6eaf0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e6eaf0 75%), linear-gradient(-45deg, transparent 75%, #e6eaf0 75%)',
-                    backgroundSize: '14px 14px',
-                    backgroundPosition: '0 0, 0 7px, 7px -7px, -7px 0',
-                  }}
-                />
+                <CheckerBackground />
               )}
               <button
                 type="button"
@@ -80,11 +83,11 @@ export function PhotoGrid({
                 className="absolute bottom-[2px] right-[2px] flex h-6 w-6 items-center justify-center"
               >
                 <img
-                  src={HEART_ICON}
+                  src={
+                    photo.isFavorite ? HEART_PHOTO_ACTIVE : HEART_PHOTO_INACTIVE
+                  }
                   alt=""
-                  className={`h-5 w-5 transition-opacity ${
-                    photo.isFavorite ? 'opacity-100' : 'opacity-90'
-                  }`}
+                  className="h-5 w-5"
                   aria-hidden="true"
                 />
               </button>
