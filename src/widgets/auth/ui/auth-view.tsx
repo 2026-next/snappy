@@ -1,6 +1,4 @@
-import { useNavigate } from 'react-router-dom'
-
-import { useAuthStore, type AuthProvider } from '@/shared/auth/use-auth-store'
+import { authStartUrl, type OAuthProvider } from '@/shared/config/api'
 
 const KAKAO_ICON = '/icons/kakao.svg'
 const GOOGLE_ICON = '/icons/google.svg'
@@ -8,12 +6,8 @@ const LOGO_PLACEHOLDER = '/icons/logo-placeholder.png'
 const AUTH_HERO = '/images/welcome-hero.png'
 
 export function AuthView() {
-  const navigate = useNavigate()
-  const loginWith = useAuthStore((state) => state.loginWith)
-
-  const handleLogin = (provider: AuthProvider) => () => {
-    loginWith(provider)
-    navigate('/', { replace: true })
+  const handleLogin = (provider: OAuthProvider) => () => {
+    window.location.assign(authStartUrl(provider))
   }
 
   return (
