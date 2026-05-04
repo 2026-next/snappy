@@ -1,0 +1,58 @@
+name: Deploy frontend
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: snappy-production-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      SNAPPY_SSH_HOST: ${{ vars.SNAPPY_SSH_HOST }}
+      SNAPPY_SSH_USER: ${{ vars.SNAPPY_SSH_USER }}
+      SNAPPY_SSH_PORT: ${{ vars.SNAPPY_SSH_PORT }}
+      SNAPPY_DEPLOY_PATH: ${{ vars.SNAPPY_DEPLOY_PATH }}
+      SNAPPY_SSH_KEY_PATH: ~/.ssh/snappy_deploy_key
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.8.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s' "${{ secrets.SNAPPY_DEPLOY_KEY }}" > ~/.ssh/snappy_deploy_key
+          chmod 600 ~/.ssh/snappy_deploy_key
+          printf '%s\n' "${{ secrets.SNAPPY_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploy static bundle
+        shell: bash
+        run: bash scripts/deploy-static.sh dist

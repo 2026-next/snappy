@@ -13,6 +13,19 @@ Starter React application built with Vite, TypeScript, Tailwind CSS, React Route
 - `pnpm format` formats the repository with Prettier
 - `pnpm format:check` checks formatting without writing changes
 
+## Deployment
+
+- `.github/workflows/deploy.yml` deploys the built frontend on every push to `main` and can also be run manually.
+- `scripts/deploy-static.sh` pushes `dist/` to the production server over SSH with `rsync --delete`.
+- Required GitHub repository variables:
+  - `SNAPPY_SSH_HOST`
+  - `SNAPPY_SSH_USER`
+  - `SNAPPY_SSH_PORT`
+  - `SNAPPY_DEPLOY_PATH`
+- Required GitHub repository secrets:
+  - `SNAPPY_DEPLOY_KEY`
+  - `SNAPPY_SSH_KNOWN_HOSTS`
+
 ## Source layout
 
 - `src/app` app composition, providers, router, and global styles
