@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { AlbumCreateForm } from '@/widgets/album-create/ui/album-create-form'
+import {
+  AlbumCreateForm,
+  type AlbumCreateInput,
+} from '@/widgets/album-create/ui/album-create-form'
 import { AlbumShareView } from '@/widgets/album-create/ui/album-share-view'
 
 const CHEVRON_RIGHT = '/icons/chevron-right.svg'
@@ -18,8 +21,8 @@ export function AlbumCreatePage() {
     navigate(-1)
   }
 
-  const handleCreate = (name: string) => {
-    setCreatedAlbumName(name.trim() || '새 앨범')
+  const handleCreate = (input: AlbumCreateInput) => {
+    setCreatedAlbumName(input.name.trim() || '새 앨범')
   }
 
   const handleGoHome = () => {

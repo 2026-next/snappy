@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react'
+import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 
 const ALBUM_COVER = '/images/album-cover-sample.png'
 const PENCIL_ICON = '/icons/pencil.svg'
@@ -6,21 +6,40 @@ const LINK_ICON = '/icons/link.svg'
 
 const NAME_MAX_LENGTH = 30
 
+const toLocalIsoDate = (date: Date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+export type AlbumCreateInput = {
+  name: string
+  eventDate: string
+}
+
 type AlbumCreateFormProps = {
-  onCreate: (name: string) => void
+  onCreate: (input: AlbumCreateInput) => void
 }
 
 export function AlbumCreateForm({ onCreate }: AlbumCreateFormProps) {
+  const today = useMemo(() => toLocalIsoDate(new Date()), [])
   const [name, setName] = useState('')
+  const [eventDate, setEventDate] = useState(today)
 
-  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleNameChange = (event: ChangeEvent<HTMLInputElement>) => {
     const next = event.target.value.slice(0, NAME_MAX_LENGTH)
     setName(next)
   }
 
+  const handleDateChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setEventDate(event.target.value)
+  }
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    onCreate(name)
+    if (!eventDate || eventDate < today) return
+    onCreate({ name, eventDate })
   }
 
   return (
@@ -65,7 +84,7 @@ export function AlbumCreateForm({ onCreate }: AlbumCreateFormProps) {
               id="album-name"
               type="text"
               value={name}
-              onChange={handleChange}
+              onChange={handleNameChange}
               maxLength={NAME_MAX_LENGTH}
               placeholder="예: 우리의 소중한 결혼식"
               className="w-full border-b border-[#b7bdc6] bg-transparent pb-[6px] text-[18px] font-medium text-[#222226] placeholder:text-[#b7bdc6] focus:border-[#222226] focus:outline-none"
@@ -74,6 +93,25 @@ export function AlbumCreateForm({ onCreate }: AlbumCreateFormProps) {
           <span className="pb-[8px] text-[12px] text-[#616369]">
             {name.length}/{NAME_MAX_LENGTH}
           </span>
+        </div>
+      </div>
+
+      <div className="mt-[10px] rounded-2xl bg-[#f4f6fa] p-[10px]">
+        <label htmlFor="event-date" className="block px-[10px] py-[10px]">
+          <span className="block text-[14px] font-medium text-[#616369]">
+            행사 날짜
+          </span>
+        </label>
+        <div className="px-[10px] pb-[5px]">
+          <input
+            id="event-date"
+            type="date"
+            value={eventDate}
+            min={today}
+            onChange={handleDateChange}
+            required
+            className="w-full border-b border-[#b7bdc6] bg-transparent pb-[6px] text-[18px] font-medium text-[#222226] focus:border-[#222226] focus:outline-none"
+          />
         </div>
       </div>
 
