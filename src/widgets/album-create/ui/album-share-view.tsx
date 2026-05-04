@@ -5,10 +5,20 @@ const QR_ICON = '/icons/qr.svg'
 const KAKAO_TALK_ICON = '/icons/kakao-talk.svg'
 const INSTAGRAM_ICON = '/icons/instagram.svg'
 
-const SHARE_URL = 'https://snappy.kr/share/abc123...'
+const ALLOWED_SHARE_PROTOCOLS = new Set(['http:', 'https:'])
+
+function safeShareUrl(raw: string): string | null {
+  try {
+    const url = new URL(raw)
+    return ALLOWED_SHARE_PROTOCOLS.has(url.protocol) ? url.toString() : null
+  } catch {
+    return null
+  }
+}
 
 type AlbumShareViewProps = {
   albumName: string
+  shareUrl: string
   onGoHome: () => void
 }
 
@@ -25,7 +35,22 @@ const SHARE_ACTIONS: ShareAction[] = [
   { key: 'instagram', label: '인스타그램', icon: INSTAGRAM_ICON },
 ]
 
-export function AlbumShareView({ albumName, onGoHome }: AlbumShareViewProps) {
+export function AlbumShareView({
+  albumName,
+  shareUrl,
+  onGoHome,
+}: AlbumShareViewProps) {
+  const safeUrl = safeShareUrl(shareUrl)
+
+  const handleCopy = async () => {
+    if (!safeUrl) return
+    try {
+      await navigator.clipboard.writeText(safeUrl)
+    } catch {
+      // Clipboard may be unavailable (insecure context, denied permission)
+    }
+  }
+
   return (
     <section className="relative flex flex-1 flex-col items-stretch px-5 pb-6">
       <div className="mt-[86px] flex justify-center">
@@ -54,33 +79,45 @@ export function AlbumShareView({ albumName, onGoHome }: AlbumShareViewProps) {
           <p className="px-[10px] py-[4px] text-[12px] text-[#616369]">
             링크가 생성되었어요!
           </p>
-          <a
-            href={SHARE_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="px-[10px] py-[4px] text-[12px] text-[#6691e8] underline-offset-2 hover:underline"
-          >
-            {SHARE_URL}
-          </a>
+          {safeUrl ? (
+            <a
+              href={safeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="break-all px-[10px] py-[4px] text-[12px] text-[#6691e8] underline-offset-2 hover:underline"
+            >
+              {safeUrl}
+            </a>
+          ) : (
+            <span className="px-[10px] py-[4px] text-[12px] text-[#c0392b]">
+              유효하지 않은 공유 링크예요.
+            </span>
+          )}
         </div>
       </div>
 
       <div className="mt-[10px] flex items-center gap-2">
-        {SHARE_ACTIONS.map((action) => (
-          <button
-            key={action.key}
-            type="button"
-            className="flex flex-1 flex-col items-center gap-[7px] rounded-2xl bg-[#f4f6fa] py-3 transition-opacity hover:opacity-90 active:opacity-80"
-          >
-            <img
-              src={action.icon}
-              alt=""
-              className="h-6 w-6"
-              aria-hidden="true"
-            />
-            <span className="text-[10px] text-[#222226]">{action.label}</span>
-          </button>
-        ))}
+        {SHARE_ACTIONS.map((action) => {
+          const isCopy = action.key === 'copy'
+          const disabled = isCopy && !safeUrl
+          return (
+            <button
+              key={action.key}
+              type="button"
+              onClick={isCopy ? handleCopy : undefined}
+              disabled={disabled}
+              className="flex flex-1 flex-col items-center gap-[7px] rounded-2xl bg-[#f4f6fa] py-3 transition-opacity hover:opacity-90 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <img
+                src={action.icon}
+                alt=""
+                className="h-6 w-6"
+                aria-hidden="true"
+              />
+              <span className="text-[10px] text-[#222226]">{action.label}</span>
+            </button>
+          )
+        })}
       </div>
 
       <div className="flex-1" />

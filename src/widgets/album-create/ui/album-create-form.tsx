@@ -8,9 +8,15 @@ const NAME_MAX_LENGTH = 30
 
 type AlbumCreateFormProps = {
   onCreate: (name: string) => void
+  isSubmitting?: boolean
+  errorMessage?: string | null
 }
 
-export function AlbumCreateForm({ onCreate }: AlbumCreateFormProps) {
+export function AlbumCreateForm({
+  onCreate,
+  isSubmitting = false,
+  errorMessage = null,
+}: AlbumCreateFormProps) {
   const [name, setName] = useState('')
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -20,8 +26,11 @@ export function AlbumCreateForm({ onCreate }: AlbumCreateFormProps) {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (isSubmitting) return
     onCreate(name)
   }
+
+  const isDisabled = isSubmitting || name.trim().length === 0
 
   return (
     <form
@@ -77,12 +86,22 @@ export function AlbumCreateForm({ onCreate }: AlbumCreateFormProps) {
         </div>
       </div>
 
+      {errorMessage ? (
+        <p
+          role="alert"
+          className="mt-[8px] rounded-xl bg-[#fdecec] px-4 py-3 text-[13px] text-[#c0392b]"
+        >
+          {errorMessage}
+        </p>
+      ) : null}
+
       <button
         type="submit"
-        className="mt-[8px] flex h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-[#222226] text-[18px] font-medium text-white transition-opacity hover:opacity-90 active:opacity-80"
+        disabled={isDisabled}
+        className="mt-[8px] flex h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-[#222226] text-[18px] font-medium text-white transition-opacity hover:opacity-90 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <img src={LINK_ICON} alt="" className="h-6 w-6" aria-hidden="true" />
-        공유 링크 생성
+        {isSubmitting ? '만드는 중...' : '공유 링크 생성'}
       </button>
     </form>
   )
