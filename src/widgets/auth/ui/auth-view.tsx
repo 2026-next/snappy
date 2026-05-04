@@ -1,13 +1,38 @@
+import { useNavigate } from 'react-router-dom'
+
 import { authStartUrl, type OAuthProvider } from '@/shared/config/api'
+import { useAuthStore } from '@/shared/auth/use-auth-store'
 
 const KAKAO_ICON = '/icons/kakao.svg'
 const GOOGLE_ICON = '/icons/google.svg'
 const LOGO_PLACEHOLDER = '/icons/logo-placeholder.png'
 const AUTH_HERO = '/images/welcome-hero.png'
 
+const DEBUG_ACCESS_TOKEN =
+  (import.meta.env.VITE_DEBUG_ACCESS_TOKEN as string | undefined) ??
+  'debug-access-token'
+const DEBUG_REFRESH_TOKEN =
+  (import.meta.env.VITE_DEBUG_REFRESH_TOKEN as string | undefined) ??
+  'debug-refresh-token'
+
 export function AuthView() {
+  const navigate = useNavigate()
+  const setTokens = useAuthStore((s) => s.setTokens)
+
   const handleLogin = (provider: OAuthProvider) => () => {
     window.location.assign(authStartUrl(provider))
+  }
+
+  const handleDebugLogin = () => {
+    setTokens(
+      {
+        accessToken: DEBUG_ACCESS_TOKEN,
+        refreshToken: DEBUG_REFRESH_TOKEN,
+        tokenType: 'Bearer',
+      },
+      'google',
+    )
+    navigate('/')
   }
 
   return (
@@ -53,6 +78,15 @@ export function AuthView() {
             <img src={GOOGLE_ICON} alt="" className="h-6 w-6" aria-hidden="true" />
             Google로 시작하기
           </button>
+          {import.meta.env.DEV ? (
+            <button
+              type="button"
+              onClick={handleDebugLogin}
+              className="mt-2 flex h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#b7bdc6] bg-white text-[14px] font-medium text-[#616369] transition-opacity hover:opacity-80 active:opacity-70"
+            >
+              🛠 디버그 로그인 (DEV)
+            </button>
+          ) : null}
         </div>
 
         <p className="mt-9 text-center text-[10px] text-[#a2a5ad]">
