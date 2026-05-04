@@ -2,7 +2,11 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiError } from '@/shared/api/client'
-import { createEvent, type EventResponse } from '@/shared/api/event'
+import {
+  createEvent,
+  type CreateEventInput,
+  type EventResponse,
+} from '@/shared/api/event'
 import { useAuthStore } from '@/shared/auth/use-auth-store'
 import { AlbumCreateForm } from '@/widgets/album-create/ui/album-create-form'
 import { AlbumShareView } from '@/widgets/album-create/ui/album-share-view'
@@ -33,8 +37,8 @@ export function AlbumCreatePage() {
     navigate(-1)
   }
 
-  const handleCreate = async (rawName: string) => {
-    const name = rawName.trim()
+  const handleCreate = async (input: CreateEventInput) => {
+    const name = input.name.trim()
     if (!name) return
     if (!isAuthenticated) {
       navigate('/auth')
@@ -43,10 +47,7 @@ export function AlbumCreatePage() {
     setErrorMessage(null)
     setIsSubmitting(true)
     try {
-      const event = await createEvent({
-        name,
-        eventDate: new Date().toISOString(),
-      })
+      const event = await createEvent({ name, eventDate: input.eventDate })
       setCreatedEvent(event)
     } catch (error) {
       setErrorMessage(errorMessageFor(error))
