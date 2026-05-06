@@ -12,7 +12,7 @@ export function GuestSignupPage() {
     _password: string,
   ) => {
     // TODO: API 연동 후 실제 처리
-    navigate(`/guest/${albumId}/photo-select`)
+    navigate(`/guest/${albumId}/upload/select`)
   }
 
   return (

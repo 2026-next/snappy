@@ -25,7 +25,10 @@ export function GuestSignupView({ onBack, onComplete }: GuestSignupViewProps) {
   const isNextDisabled =
     (step === 1 && name.trim().length === 0) ||
     (step === 2 && relation.length === 0) ||
-    (step === 3 && (password.length === 0 || passwordMismatch))
+    (step === 3 &&
+      (password.length === 0 ||
+        passwordConfirm.length === 0 ||
+        password !== passwordConfirm))
 
   const handleBack = () => {
     if (step === 1) onBack()

@@ -6,6 +6,10 @@ import { AuthPage } from '@/pages/auth'
 import { GuestLoginPage } from '@/pages/guest/login'
 import { GuestOnboardingPage } from '@/pages/guest/onboarding'
 import { GuestSignupPage } from '@/pages/guest/signup'
+import { GuestUploadMessagePage } from '@/pages/guest/upload/message'
+import { GuestUploadSelectPage } from '@/pages/guest/upload/select'
+import { GuestUploadSuccessPage } from '@/pages/guest/upload/success'
+import { GuestMyPhotosPage } from '@/pages/guest/my-photos'
 import { GoogleCallbackPage } from '@/pages/auth/google-callback'
 import { KakaoCallbackPage } from '@/pages/auth/kakao-callback'
 import { HomePage } from '@/pages/home'
@@ -31,7 +35,15 @@ export const routeTree: RouteObject[] = [
           { path: 'onboarding', element: <GuestOnboardingPage /> },
           { path: 'login', element: <GuestLoginPage /> },
           { path: 'signup', element: <GuestSignupPage /> },
-          { path: 'photo-select' },
+          {
+            path: 'upload',
+            children: [
+              { path: 'select', element: <GuestUploadSelectPage /> },
+              { path: 'message', element: <GuestUploadMessagePage /> },
+              { path: 'success', element: <GuestUploadSuccessPage /> },
+            ],
+          },
+          { path: 'my-photos', element: <GuestMyPhotosPage /> },
         ],
       },
 

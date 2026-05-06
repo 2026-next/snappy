@@ -8,8 +8,8 @@ export function GuestOnboardingPage() {
 
   return (
     <GuestOnboardingView
-      onUploadStart={() => navigate(`/guest/${albumId}/login`)}
-      onViewMyPhotos={() => navigate(`/guest/${albumId}/login`)}
+      onUploadStart={() => navigate(`/guest/${albumId}/login?from=upload`)}
+      onViewMyPhotos={() => navigate(`/guest/${albumId}/login?from=my-photos`)}
     />
   )
 }
