@@ -69,7 +69,7 @@ export function GuestSignupView({ onBack, onComplete }: GuestSignupViewProps) {
               <div
                 key={s}
                 className={`h-2 rounded-full transition-all duration-300 ${
-                  s === step ? 'w-8 bg-[#222226]' : 'w-2 bg-[#b7bdc6]'
+                  s === 1 ? 'w-8 bg-[#222226]' : 'w-2 bg-[#b7bdc6]'
                 }`}
               />
             ))}
