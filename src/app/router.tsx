@@ -3,6 +3,9 @@ import { createBrowserRouter, type RouteObject } from 'react-router-dom'
 import { App } from '@/app/App'
 import { AlbumCreatePage } from '@/pages/album-create'
 import { AuthPage } from '@/pages/auth'
+import { GuestLoginPage } from '@/pages/guest/login'
+import { GuestOnboardingPage } from '@/pages/guest/onboarding'
+import { GuestSignupPage } from '@/pages/guest/signup'
 import { GoogleCallbackPage } from '@/pages/auth/google-callback'
 import { KakaoCallbackPage } from '@/pages/auth/kakao-callback'
 import { HomePage } from '@/pages/home'
@@ -23,9 +26,12 @@ export const routeTree: RouteObject[] = [
 
       // Guest Routes
       {
-        path: 'g/:eventId',
+        path: 'guest/:albumId',
         children: [
-          // TODO: Guest Routes
+          { path: 'onboarding', element: <GuestOnboardingPage /> },
+          { path: 'login', element: <GuestLoginPage /> },
+          { path: 'signup', element: <GuestSignupPage /> },
+          { path: 'photo-select' },
         ],
       },
 
