@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 
+type ViewMode = 'view' | 'delete'
+
 interface FileEntry {
+  id: number
   file: File
   preview: string
 }
@@ -12,8 +15,11 @@ interface GuestUploadSelectViewProps {
 
 export function GuestUploadSelectView({ onBack, onNext }: GuestUploadSelectViewProps) {
   const [entries, setEntries] = useState<FileEntry[]>([])
+  const [mode, setMode] = useState<ViewMode>('view')
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
   const entriesRef = useRef<FileEntry[]>([])
+  const idCounterRef = useRef(0)
 
   useEffect(() => {
     entriesRef.current = entries
@@ -27,14 +33,41 @@ export function GuestUploadSelectView({ onBack, onNext }: GuestUploadSelectViewP
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files ?? [])
-    const newEntries = picked.map((file) => ({ file, preview: URL.createObjectURL(file) }))
+    const newEntries = picked.map((file) => ({
+      id: ++idCounterRef.current,
+      file,
+      preview: URL.createObjectURL(file),
+    }))
     setEntries((prev) => [...prev, ...newEntries])
     e.target.value = ''
   }
 
-  const handleDeleteAll = () => {
-    entries.forEach((e) => URL.revokeObjectURL(e.preview))
-    setEntries([])
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleEnterDeleteMode = () => {
+    setMode('delete')
+    setSelectedIds(new Set())
+  }
+
+  const handleCancelDelete = () => {
+    setMode('view')
+    setSelectedIds(new Set())
+  }
+
+  const handleDeleteSelected = () => {
+    entries
+      .filter((e) => selectedIds.has(e.id))
+      .forEach((e) => URL.revokeObjectURL(e.preview))
+    setEntries((prev) => prev.filter((e) => !selectedIds.has(e.id)))
+    setMode('view')
+    setSelectedIds(new Set())
   }
 
   return (
@@ -113,21 +146,33 @@ export function GuestUploadSelectView({ onBack, onNext }: GuestUploadSelectViewP
                     총 {entries.length}장
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleDeleteAll}
-                  className="text-[12px] tracking-[-0.24px] text-[#a2a5ad] underline"
-                >
-                  사진 삭제
-                </button>
+                {mode === 'view' ? (
+                  <button
+                    type="button"
+                    onClick={handleEnterDeleteMode}
+                    className="text-[12px] tracking-[-0.24px] text-[#a2a5ad] underline"
+                  >
+                    사진 삭제
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleCancelDelete}
+                    className="text-[12px] tracking-[-0.24px] text-[#a2a5ad] underline"
+                  >
+                    선택 취소
+                  </button>
+                )}
               </div>
 
               <div className="flex flex-col gap-1">
                 {chunkArray(entries, 3).map((row, i) => (
                   <div key={i} className="flex gap-1">
-                    {row.map((entry, j) => (
-                      <div
-                        key={j}
+                    {row.map((entry) => (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        onClick={() => mode === 'delete' && toggleSelect(entry.id)}
                         className="relative aspect-square min-w-0 flex-1 overflow-hidden rounded-[4px] border border-[#d7dbe2]"
                       >
                         <img
@@ -135,7 +180,16 @@ export function GuestUploadSelectView({ onBack, onNext }: GuestUploadSelectViewP
                           alt=""
                           className="absolute inset-0 h-full w-full object-cover"
                         />
-                      </div>
+                        {mode === 'delete' && (
+                          <span className="absolute right-1 top-1">
+                            {selectedIds.has(entry.id) ? (
+                              <CheckCircleFilled />
+                            ) : (
+                              <CheckCircleEmpty />
+                            )}
+                          </span>
+                        )}
+                      </button>
                     ))}
                     {row.length < 3 &&
                       Array.from({ length: 3 - row.length }).map((_, k) => (
@@ -150,15 +204,27 @@ export function GuestUploadSelectView({ onBack, onNext }: GuestUploadSelectViewP
 
         <div className="grow" />
 
-        <button
-          type="button"
-          onClick={() => onNext(entries.map((e) => e.file))}
-          disabled={entries.length === 0}
-          className="flex h-[60px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#222226] text-[18px] font-medium tracking-[-0.36px] text-white disabled:opacity-40"
-        >
-          <ArrowCircleRightIcon />
-          다음
-        </button>
+        {mode === 'view' ? (
+          <button
+            type="button"
+            onClick={() => onNext(entries.map((e) => e.file))}
+            disabled={entries.length === 0}
+            className="flex h-[60px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#222226] text-[18px] font-medium tracking-[-0.36px] text-white disabled:opacity-40"
+          >
+            <ArrowCircleRightIcon />
+            다음
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleDeleteSelected}
+            disabled={selectedIds.size === 0}
+            className="flex h-[60px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#222226] text-[18px] font-medium tracking-[-0.36px] text-white disabled:opacity-40"
+          >
+            <TrashIcon />
+            {selectedIds.size}개 사진 삭제
+          </button>
+        )}
       </div>
     </div>
   )
@@ -239,6 +305,51 @@ function ArrowCircleRightIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path d="M3 6h18" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+      <path
+        d="M8 6V4h8v2"
+        stroke="white"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M19 6l-1 14H6L5 6"
+        stroke="white"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function CheckCircleFilled() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="12" fill="#222226" />
+      <path
+        d="M7 12L10.5 15.5L17 8.5"
+        stroke="white"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function CheckCircleEmpty() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10.5" fill="white" fillOpacity="0.7" stroke="#b7bdc6" strokeWidth="1.5" />
     </svg>
   )
 }
