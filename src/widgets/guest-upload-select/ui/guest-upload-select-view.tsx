@@ -17,6 +17,7 @@ export function GuestUploadSelectView({ onBack, onNext }: GuestUploadSelectViewP
   const [entries, setEntries] = useState<FileEntry[]>([])
   const [mode, setMode] = useState<ViewMode>('view')
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const entriesRef = useRef<FileEntry[]>([])
   const idCounterRef = useRef(0)
@@ -71,12 +72,13 @@ export function GuestUploadSelectView({ onBack, onNext }: GuestUploadSelectViewP
   }
 
   return (
+    <>
     <div className="flex min-h-screen flex-col bg-white text-[#222226]">
       <div className="mx-auto flex w-full max-w-[402px] grow flex-col px-5 pt-6 pb-8">
         <header className="relative flex h-10 items-center justify-center">
           <button
             type="button"
-            onClick={onBack}
+            onClick={() => setIsExitModalOpen(true)}
             aria-label="뒤로가기"
             className="absolute left-0 flex size-10 items-center justify-center"
           >
@@ -227,6 +229,36 @@ export function GuestUploadSelectView({ onBack, onNext }: GuestUploadSelectViewP
         )}
       </div>
     </div>
+
+    {isExitModalOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-5">
+        <div className="flex w-full max-w-[362px] flex-col gap-5 rounded-[18px] bg-white px-4 py-5">
+          <p className="text-center text-[20px] font-bold tracking-[-0.4px] text-[#222226]">
+            사진 선택을 중단할까요?
+          </p>
+          <p className="text-center text-[14px] leading-[1.5] text-[#616369]">
+            선택한 사진이 저장되지 않을 수 있어요.<br />로그인 화면으로 돌아가시겠어요?
+          </p>
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={onBack}
+              className="h-[44px] flex-1 rounded-[16px] bg-[#f4f6fa] text-[18px] font-medium text-[#222226]"
+            >
+              나가기
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsExitModalOpen(false)}
+              className="h-[44px] flex-1 rounded-[16px] bg-[#222226] text-[18px] font-medium text-white"
+            >
+              계속 선택하기
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 

@@ -32,6 +32,7 @@ export function GuestMyPhotosView({
 }: GuestMyPhotosViewProps) {
   const [mode, setMode] = useState<ViewMode>('view')
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false)
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false)
   const [currentMessage, setCurrentMessage] = useState(initialMessage)
   const [editingMessage, setEditingMessage] = useState(initialMessage)
@@ -79,13 +80,14 @@ export function GuestMyPhotosView({
   const rows = chunkArray(photos, 3)
 
   return (
+    <>
     <div className="flex min-h-screen flex-col bg-white text-[#222226]">
       <div className="mx-auto flex w-full max-w-[402px] grow flex-col px-5 pt-6 pb-8">
         {/* Header */}
         <header className="relative flex h-10 items-center justify-center">
           <button
             type="button"
-            onClick={onBack}
+            onClick={() => setIsExitModalOpen(true)}
             aria-label="뒤로가기"
             className="absolute left-0 flex size-10 items-center justify-center"
           >
@@ -229,6 +231,33 @@ export function GuestMyPhotosView({
         )}
       </div>
 
+      {/* 나가기 확인 모달 */}
+      {isExitModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-5">
+          <div className="flex w-full max-w-[362px] flex-col items-center gap-5 rounded-[18px] bg-white px-4 py-5">
+            <p className="text-center text-[20px] font-bold tracking-[-0.4px] text-[#222226]">
+              로그인 화면으로 돌아가시겠어요?
+            </p>
+            <div className="flex w-full gap-4">
+              <button
+                type="button"
+                onClick={onBack}
+                className="h-[44px] flex-1 rounded-[16px] bg-[#f4f6fa] text-[18px] font-medium text-[#222226]"
+              >
+                나가기
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsExitModalOpen(false)}
+                className="h-[44px] flex-1 rounded-[16px] bg-[#222226] text-[18px] font-medium text-white"
+              >
+                머무르기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 축하 메세지 수정 모달 */}
       {isMessageModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-5">
@@ -267,6 +296,7 @@ export function GuestMyPhotosView({
         </div>
       )}
     </div>
+    </>
   )
 }
 
