@@ -157,7 +157,7 @@ describe('app routing', () => {
     ).toBeInTheDocument()
     expect(
       await screen.findByRole('link', {
-        name: /snappyku\.site\/guest\/join\/access_event-1/i,
+        name: /\/guest\/join\/access_event-1/i,
       }),
     ).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalled()

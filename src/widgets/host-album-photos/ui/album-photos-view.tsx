@@ -236,7 +236,10 @@ export function AlbumPhotosView() {
     exitSelectionMode()
   }
 
-  const handleSendShareLink = () => {}
+  const handleSendShareLink = () => {
+    if (!albumId) return
+    navigate(`/host/albums/${albumId}/share`)
+  }
   const handleDeleteAllFromHeader = async () => {
     const allIds = album.data.items.map((p) => p.id)
     if (allIds.length === 0) return
