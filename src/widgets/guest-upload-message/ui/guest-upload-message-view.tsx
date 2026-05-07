@@ -99,7 +99,7 @@ export function GuestUploadMessageView({
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="예: 오늘 너무 아름다웠어요. 결혼 진심으로 축하해요!"
+              placeholder="진심을 담은 축하 메시지를 작성해보세요."
               className="h-[120px] w-full resize-none rounded-[6px] bg-white p-[10px] text-[14px] font-medium tracking-[-0.28px] text-[#222226] outline-none placeholder:text-[#b7bdc6]"
             />
           </div>
