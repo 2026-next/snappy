@@ -1,12 +1,10 @@
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
 import { GuestLoginView } from '@/widgets/guest-login/ui/guest-login-view'
 
 export function GuestLoginPage() {
   const { albumId = '' } = useParams<{ albumId: string }>()
-  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const from = searchParams.get('from') ?? 'upload'
 
   const handleSubmit = async (
     _name: string,
@@ -14,6 +12,7 @@ export function GuestLoginPage() {
   ): Promise<boolean> => {
     // TODO: API 연동 후 실제 인증 처리
     // 로그인 성공 시:
+    // const from = searchParams.get('from') ?? 'upload'
     // const dest = from === 'my-photos'
     //   ? `/guest/${albumId}/my-photos`
     //   : `/guest/${albumId}/upload/select`
