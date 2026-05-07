@@ -1,5 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+
+import {
+  RELATION_LABELS,
+  type PhotoDetail,
+  deletePhoto,
+  getPhotoDetail,
+  toggleFavorite,
+} from '@/shared/api/photo'
 
 const CHEVRON_RIGHT = '/icons/chevron-right.svg'
 const MORE_ICON = '/icons/more.svg'
@@ -9,38 +17,107 @@ const HEART_OUTLINE = '/icons/heart-outline.svg'
 const HEART_FILLED = '/icons/heart-filled.svg'
 const AI_SPARKLE = '/icons/ai-sparkle.svg'
 
-const SAMPLE_PHOTO = '/images/album-cover-sample.png'
-
+const FALLBACK_PHOTO = '/images/album-cover-sample.png'
 const ALBUM_TITLE = '민수 & 지연 Wedding'
-const MOCK_MESSAGE = '오늘 정말 아름다웠어, 결혼 축하해!'
-const MOCK_UPLOADER_NAME = '김민준'
-const MOCK_UPLOADER_RELATION = '친구'
-const MOCK_TAKEN_AT = { date: '2026.05.16', time: '14:21' }
-const MOCK_UPLOADED_AT = { date: '2026.05.16', time: '20:34' }
-const MOCK_RETOUCHED = false
+
+function formatDate(iso: string | null): string {
+  if (!iso) return ''
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  const pad = (n: number) => (n < 10 ? `0${n}` : String(n))
+  return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())}`
+}
+
+function formatTime(iso: string | null): string {
+  if (!iso) return ''
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (n: number) => (n < 10 ? `0${n}` : String(n))
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
 
 export function PhotoDetailView() {
   const navigate = useNavigate()
-  const { albumId, photoId } = useParams()
+  const { albumId, photoId } = useParams<{ albumId: string; photoId: string }>()
 
-  const [isFavorite, setIsFavorite] = useState(false)
+  const [photo, setPhoto] = useState<PhotoDetail | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isMutating, setIsMutating] = useState(false)
+
+  useEffect(() => {
+    if (!photoId) return
+    let cancelled = false
+    setIsLoading(true)
+    setError(null)
+    getPhotoDetail(photoId)
+      .then((detail) => {
+        if (!cancelled) setPhoto(detail)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : '사진을 불러오지 못했어요')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [photoId])
 
   const handleBack = () => navigate(-1)
   const handleMore = () => {}
   const handleOpenDelete = () => setIsDeleteModalOpen(true)
   const handleCloseDelete = () => setIsDeleteModalOpen(false)
-  const handleConfirmDelete = () => {
-    setIsDeleteModalOpen(false)
-    navigate(-1)
-  }
-  const handleDownload = () => {
-    if (albumId && photoId) {
-      navigate(`/host/albums/${albumId}/photos/${photoId}/save`)
+
+  const handleConfirmDelete = async () => {
+    if (!photoId || isMutating) return
+    setIsMutating(true)
+    try {
+      await deletePhoto(photoId)
+      setIsDeleteModalOpen(false)
+      navigate(-1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '사진 삭제에 실패했어요')
+    } finally {
+      setIsMutating(false)
     }
   }
-  const handleToggleFavorite = () => setIsFavorite((prev) => !prev)
+
+  const handleDownload = () => {
+    if (!albumId || !photoId) return
+    navigate(`/host/albums/${albumId}/photos/${photoId}/save`)
+  }
+
+  const handleToggleFavorite = async () => {
+    if (!photoId || !photo || isMutating) return
+    const previous = photo.isFavorite
+    setPhoto({ ...photo, isFavorite: !previous })
+    setIsMutating(true)
+    try {
+      await toggleFavorite(photoId)
+    } catch (err) {
+      setPhoto((prev) => (prev ? { ...prev, isFavorite: previous } : prev))
+      setError(err instanceof Error ? err.message : '즐겨찾기 변경에 실패했어요')
+    } finally {
+      setIsMutating(false)
+    }
+  }
+
   const handleEdit = () => {}
+
+  const photoSrc = photo?.url ?? photo?.thumbnailUrl ?? FALLBACK_PHOTO
+  const isFavorite = photo?.isFavorite ?? false
+  const message = photo?.message ?? ''
+  const uploaderName = photo?.uploaderName ?? ''
+  const uploaderRelation =
+    photo?.uploaderRelation != null ? RELATION_LABELS[photo.uploaderRelation] : ''
+  const takenAt = photo?.takenAt ?? null
+  const uploadedAt = photo?.uploadedAt ?? null
+  const retouchedLabel = photo?.isRetouched ? '보정 완료' : '보정 전'
 
   return (
     <main className="relative mx-auto flex min-h-screen w-full max-w-[402px] flex-col bg-white">
@@ -73,7 +150,7 @@ export function PhotoDetailView() {
 
       <div className="relative aspect-[402/302] w-full overflow-hidden bg-[#f4f6fa]">
         <img
-          src={SAMPLE_PHOTO}
+          src={photoSrc}
           alt=""
           className="h-full w-full object-cover"
           aria-hidden="true"
@@ -86,27 +163,19 @@ export function PhotoDetailView() {
             type="button"
             onClick={handleOpenDelete}
             aria-label="사진 삭제"
-            className="flex h-[38px] items-center justify-center rounded-[10px] bg-[#f4f6fa] px-2"
+            disabled={isLoading || isMutating || !photo}
+            className="flex h-[38px] items-center justify-center rounded-[10px] bg-[#f4f6fa] px-2 disabled:opacity-50"
           >
-            <img
-              src={TRASH_ICON}
-              alt=""
-              className="h-6 w-6"
-              aria-hidden="true"
-            />
+            <img src={TRASH_ICON} alt="" className="h-6 w-6" aria-hidden="true" />
           </button>
           <button
             type="button"
             onClick={handleDownload}
             aria-label="사진 저장"
-            className="flex h-[38px] items-center justify-center rounded-[10px] bg-[#f4f6fa] px-2 text-[#222226]"
+            disabled={isLoading || !photo}
+            className="flex h-[38px] items-center justify-center rounded-[10px] bg-[#f4f6fa] px-2 text-[#222226] disabled:opacity-50"
           >
-            <img
-              src={DOWNLOAD_ICON}
-              alt=""
-              className="h-6 w-6"
-              aria-hidden="true"
-            />
+            <img src={DOWNLOAD_ICON} alt="" className="h-6 w-6" aria-hidden="true" />
           </button>
         </div>
         <button
@@ -114,7 +183,8 @@ export function PhotoDetailView() {
           onClick={handleToggleFavorite}
           aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
           aria-pressed={isFavorite}
-          className="flex h-12 w-12 items-center justify-center"
+          disabled={isLoading || isMutating || !photo}
+          className="flex h-12 w-12 items-center justify-center disabled:opacity-50"
         >
           <img
             src={isFavorite ? HEART_FILLED : HEART_OUTLINE}
@@ -125,11 +195,18 @@ export function PhotoDetailView() {
         </button>
       </div>
 
+      {error && (
+        <p className="px-5 pt-2 text-[12px] text-[#e23a3a]">{error}</p>
+      )}
+      {isLoading && !photo && (
+        <p className="px-5 pt-2 text-[12px] text-[#a2a5ad]">사진 정보를 불러오는 중...</p>
+      )}
+
       <div className="mt-4 flex flex-col gap-2 px-5">
         <div className="flex flex-col items-start rounded-2xl bg-[#f4f6fa] px-5 py-3">
           <div className="flex gap-3 text-[14px] leading-[1.4] tracking-[-0.28px]">
             <p className="w-[90px] shrink-0 text-[#616369]">축하 메세지</p>
-            <p className="text-[#222226]">{MOCK_MESSAGE}</p>
+            <p className="text-[#222226]">{message || '-'}</p>
           </div>
         </div>
 
@@ -137,28 +214,32 @@ export function PhotoDetailView() {
           <div className="flex gap-3 text-[14px] leading-[1.4] tracking-[-0.28px]">
             <p className="w-[90px] shrink-0 text-[#616369]">업로드자</p>
             <div className="flex items-center gap-1 text-[#222226]">
-              <span>{MOCK_UPLOADER_NAME}</span>
-              <span>·</span>
-              <span>{MOCK_UPLOADER_RELATION}</span>
+              <span>{uploaderName || '-'}</span>
+              {uploaderRelation && (
+                <>
+                  <span>·</span>
+                  <span>{uploaderRelation}</span>
+                </>
+              )}
             </div>
           </div>
           <div className="flex gap-3 text-[14px] leading-[1.4] tracking-[-0.28px]">
             <p className="w-[90px] shrink-0 text-[#616369]">촬영 시간</p>
             <div className="flex items-center gap-1 text-[#222226]">
-              <span>{MOCK_TAKEN_AT.date}</span>
-              <span>{MOCK_TAKEN_AT.time}</span>
+              <span>{formatDate(takenAt) || '-'}</span>
+              <span>{formatTime(takenAt)}</span>
             </div>
           </div>
           <div className="flex gap-3 text-[14px] leading-[1.4] tracking-[-0.28px]">
             <p className="w-[90px] shrink-0 text-[#616369]">업로드 시간</p>
             <div className="flex items-center gap-1 text-[#222226]">
-              <span>{MOCK_UPLOADED_AT.date}</span>
-              <span>{MOCK_UPLOADED_AT.time}</span>
+              <span>{formatDate(uploadedAt) || '-'}</span>
+              <span>{formatTime(uploadedAt)}</span>
             </div>
           </div>
           <div className="flex gap-3 text-[14px] leading-[1.4] tracking-[-0.28px]">
             <p className="w-[90px] shrink-0 text-[#616369]">보정 여부</p>
-            <p className="text-[#222226]">{MOCK_RETOUCHED ? '보정 완료' : '보정 전'}</p>
+            <p className="text-[#222226]">{retouchedLabel}</p>
           </div>
         </div>
       </div>
@@ -167,14 +248,10 @@ export function PhotoDetailView() {
         <button
           type="button"
           onClick={handleEdit}
-          className="flex h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-[#222226] text-[18px] font-medium text-white transition-opacity hover:opacity-90 active:opacity-80"
+          disabled={isLoading || !photo}
+          className="flex h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-[#222226] text-[18px] font-medium text-white transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-50"
         >
-          <img
-            src={AI_SPARKLE}
-            alt=""
-            className="h-6 w-6"
-            aria-hidden="true"
-          />
+          <img src={AI_SPARKLE} alt="" className="h-6 w-6" aria-hidden="true" />
           사진 보정하기
         </button>
       </div>
@@ -208,14 +285,16 @@ export function PhotoDetailView() {
               <button
                 type="button"
                 onClick={handleConfirmDelete}
-                className="flex h-11 flex-1 items-center justify-center rounded-2xl bg-[#f4f6fa] text-[18px] font-medium text-[#222226]"
+                disabled={isMutating}
+                className="flex h-11 flex-1 items-center justify-center rounded-2xl bg-[#f4f6fa] text-[18px] font-medium text-[#222226] disabled:opacity-50"
               >
-                삭제하기
+                {isMutating ? '삭제 중...' : '삭제하기'}
               </button>
               <button
                 type="button"
                 onClick={handleCloseDelete}
-                className="flex h-11 flex-1 items-center justify-center rounded-2xl bg-[#222226] text-[18px] font-medium text-white"
+                disabled={isMutating}
+                className="flex h-11 flex-1 items-center justify-center rounded-2xl bg-[#222226] text-[18px] font-medium text-white disabled:opacity-50"
               >
                 취소
               </button>

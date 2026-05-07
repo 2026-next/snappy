@@ -1,28 +1,220 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+
+import { type PhotoDetail, getPhotoDetail } from '@/shared/api/photo'
 
 const CHEVRON_RIGHT = '/icons/chevron-right.svg'
 const DOWNLOAD_ICON = '/icons/download.svg'
 
-const SAMPLE_PHOTO = '/images/album-cover-sample.png'
-
+const FALLBACK_PHOTO = '/images/album-cover-sample.png'
 const HEADER_TITLE = '사진 저장하기'
-const MOCK_MESSAGE = '오늘 정말 아름다웠어, 결혼 축하해!'
-const MOCK_UPLOADER_NAME = '김민준'
+const POLAROID_FONT = "'THEFACESHOP INKLIPQUID', cursive"
 
 type SaveTab = 'polaroid' | 'plain'
 
+function formatTakenDate(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number) => (n < 10 ? `0${n}` : String(n))
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
+}
+
+async function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = () =>
+      reject(new Error(`이미지를 불러오지 못했어요: ${src}`))
+    img.src = src
+  })
+}
+
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+async function downloadPlain(src: string, filename: string): Promise<void> {
+  try {
+    const res = await fetch(src)
+    if (!res.ok) throw new Error(`이미지를 불러오지 못했어요 (상태 코드 ${res.status})`)
+    const blob = await res.blob()
+    triggerDownload(blob, filename)
+  } catch {
+    const anchor = document.createElement('a')
+    anchor.href = src
+    anchor.download = filename
+    anchor.target = '_blank'
+    anchor.rel = 'noopener noreferrer'
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+  }
+}
+
+type PolaroidOptions = {
+  showMessage: boolean
+  showUploader: boolean
+  showTakenAt: boolean
+  message: string
+  uploaderName: string
+  takenAtLabel: string
+}
+
+async function downloadPolaroid(
+  src: string,
+  options: PolaroidOptions,
+  filename: string,
+): Promise<void> {
+  const img = await loadImage(src)
+  const canvas = document.createElement('canvas')
+  const targetWidth = 1200
+  const photoRatio = img.naturalHeight === 0 ? 0.75 : img.naturalHeight / img.naturalWidth
+  const photoWidth = targetWidth - 112
+  const photoHeight = Math.round(photoWidth * photoRatio)
+
+  const captionLines: string[] = []
+  if (options.showMessage && options.message) captionLines.push(options.message)
+  if (options.showUploader && options.uploaderName) {
+    captionLines.push(`From. ${options.uploaderName}`)
+  }
+  if (options.showTakenAt && options.takenAtLabel) {
+    captionLines.push(options.takenAtLabel)
+  }
+  const captionLineHeight = 64
+  const captionPaddingTop = captionLines.length > 0 ? 32 : 0
+  const captionPaddingBottom = captionLines.length > 0 ? 56 : 56
+  const captionAreaHeight =
+    captionLines.length === 0
+      ? 56
+      : captionPaddingTop +
+        captionLines.length * captionLineHeight +
+        captionPaddingBottom
+
+  const totalHeight = 56 + photoHeight + captionAreaHeight
+  canvas.width = targetWidth
+  canvas.height = totalHeight
+
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('이미지 합성을 준비하지 못했어요')
+
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+  ctx.drawImage(img, 56, 56, photoWidth, photoHeight)
+
+  if (captionLines.length > 0) {
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    let y = 56 + photoHeight + captionPaddingTop + captionLineHeight / 2
+    captionLines.forEach((line, index) => {
+      const isMessage = index === 0 && options.showMessage && options.message
+      ctx.fillStyle = isMessage ? '#222226' : '#878787'
+      const fontSize = isMessage ? 56 : 44
+      ctx.font = `${fontSize}px ${POLAROID_FONT}, sans-serif`
+      ctx.fillText(line, canvas.width / 2, y)
+      y += captionLineHeight
+    })
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) return reject(new Error('이미지를 만들지 못했어요'))
+      triggerDownload(blob, filename)
+      resolve()
+    }, 'image/png')
+  })
+}
+
 export function PhotoSaveView() {
   const navigate = useNavigate()
+  const { photoId } = useParams<{ photoId: string }>()
 
+  const [photo, setPhoto] = useState<PhotoDetail | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<SaveTab>('polaroid')
   const [showMessage, setShowMessage] = useState(true)
   const [showUploader, setShowUploader] = useState(true)
   const [showTakenAt, setShowTakenAt] = useState(false)
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const cancelledRef = useRef(false)
+
+  useEffect(() => {
+    if (!photoId) return
+    cancelledRef.current = false
+    setIsLoading(true)
+    setError(null)
+    getPhotoDetail(photoId)
+      .then((detail) => {
+        if (!cancelledRef.current) setPhoto(detail)
+      })
+      .catch((err: unknown) => {
+        if (!cancelledRef.current) {
+          setError(err instanceof Error ? err.message : '사진을 불러오지 못했어요')
+        }
+      })
+      .finally(() => {
+        if (!cancelledRef.current) setIsLoading(false)
+      })
+    return () => {
+      cancelledRef.current = true
+    }
+  }, [photoId])
+
+  const photoSrc = photo?.url ?? photo?.thumbnailUrl ?? FALLBACK_PHOTO
+  const message = photo?.message ?? ''
+  const uploaderName = photo?.uploaderName ?? ''
+  const takenAtLabel = useMemo(
+    () => formatTakenDate(photo?.takenAt ?? null),
+    [photo?.takenAt],
+  )
 
   const handleBack = () => navigate(-1)
-  const handleSave = () => setIsCompleteModalOpen(true)
+
+  const handleSave = async () => {
+    if (isSaving) return
+    if (!photo || !photoSrc) {
+      setError('저장할 사진을 불러오지 못했어요')
+      return
+    }
+    setIsSaving(true)
+    setError(null)
+    const filename = `snappy-${photo.id}-${tab}.${tab === 'polaroid' ? 'png' : 'jpg'}`
+    try {
+      if (tab === 'polaroid') {
+        await downloadPolaroid(
+          photoSrc,
+          {
+            showMessage,
+            showUploader,
+            showTakenAt,
+            message,
+            uploaderName,
+            takenAtLabel,
+          },
+          filename,
+        )
+      } else {
+        await downloadPlain(photoSrc, filename)
+      }
+      setIsCompleteModalOpen(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '사진 저장에 실패했어요')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleGoHome = () => {
     setIsCompleteModalOpen(false)
     navigate('/')
@@ -90,6 +282,17 @@ export function PhotoSaveView() {
         </div>
       </div>
 
+      {error && (
+        <p className="px-5 pt-2 text-center text-[12px] text-[#e23a3a]">
+          {error}
+        </p>
+      )}
+      {isLoading && (
+        <p className="px-5 pt-2 text-center text-[12px] text-[#a2a5ad]">
+          사진을 불러오는 중...
+        </p>
+      )}
+
       {tab === 'polaroid' ? (
         <div className="mt-6 flex flex-col items-center gap-6 px-5">
           <div
@@ -98,35 +301,35 @@ export function PhotoSaveView() {
           >
             <div className="aspect-[300/225] w-full overflow-hidden">
               <img
-                src={SAMPLE_PHOTO}
+                src={photoSrc}
                 alt=""
                 className="h-full w-full object-cover"
                 aria-hidden="true"
               />
             </div>
             <div className="flex w-full flex-col items-center justify-center gap-1 py-[4px]">
-              {showMessage && (
+              {showMessage && message && (
                 <p
                   className="text-[24px] leading-[1.4] text-[#222226]"
-                  style={{ fontFamily: "'THEFACESHOP INKLIPQUID', cursive" }}
+                  style={{ fontFamily: POLAROID_FONT }}
                 >
-                  {MOCK_MESSAGE}
+                  {message}
                 </p>
               )}
-              {showUploader && (
+              {showUploader && uploaderName && (
                 <p
                   className="text-[20px] leading-[1.4] text-[#878787]"
-                  style={{ fontFamily: "'THEFACESHOP INKLIPQUID', cursive" }}
+                  style={{ fontFamily: POLAROID_FONT }}
                 >
-                  From. {MOCK_UPLOADER_NAME}
+                  From. {uploaderName}
                 </p>
               )}
-              {showTakenAt && (
+              {showTakenAt && takenAtLabel && (
                 <p
                   className="text-[20px] leading-[1.4] text-[#878787]"
-                  style={{ fontFamily: "'THEFACESHOP INKLIPQUID', cursive" }}
+                  style={{ fontFamily: POLAROID_FONT }}
                 >
-                  2026.05.16
+                  {takenAtLabel}
                 </p>
               )}
             </div>
@@ -156,7 +359,7 @@ export function PhotoSaveView() {
         <div className="mt-6 flex flex-col items-center px-5">
           <div className="aspect-[362/272] w-full overflow-hidden">
             <img
-              src={SAMPLE_PHOTO}
+              src={photoSrc}
               alt=""
               className="h-full w-full object-cover"
               aria-hidden="true"
@@ -169,7 +372,8 @@ export function PhotoSaveView() {
         <button
           type="button"
           onClick={handleSave}
-          className="flex h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-[#222226] text-[18px] font-medium text-white transition-opacity hover:opacity-90 active:opacity-80"
+          disabled={isSaving || isLoading || !photo}
+          className="flex h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-[#222226] text-[18px] font-medium text-white transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-50"
         >
           <img
             src={DOWNLOAD_ICON}
@@ -177,7 +381,7 @@ export function PhotoSaveView() {
             className="h-6 w-6 [filter:invert(1)]"
             aria-hidden="true"
           />
-          갤러리에 저장하기
+          {isSaving ? '저장 중...' : '갤러리에 저장하기'}
         </button>
       </div>
 
