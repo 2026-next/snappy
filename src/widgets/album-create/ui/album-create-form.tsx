@@ -1,4 +1,11 @@
-import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from 'react'
 
 import type { CreateEventInput } from '@/shared/api/event'
 
@@ -19,16 +26,31 @@ type AlbumCreateFormProps = {
   onCreate: (input: CreateEventInput) => void
   isSubmitting?: boolean
   errorMessage?: string | null
+  initialCoverFile?: File | null
 }
 
 export function AlbumCreateForm({
   onCreate,
   isSubmitting = false,
   errorMessage = null,
+  initialCoverFile = null,
 }: AlbumCreateFormProps) {
   const today = useMemo(() => toLocalIsoDate(new Date()), [])
   const [name, setName] = useState('')
   const [eventDate, setEventDate] = useState(today)
+  const [coverFile, setCoverFile] = useState<File | null>(initialCoverFile)
+  const coverInputRef = useRef<HTMLInputElement>(null)
+
+  const coverPreview = useMemo(() => {
+    if (!coverFile) return null
+    return URL.createObjectURL(coverFile)
+  }, [coverFile])
+
+  useEffect(() => {
+    return () => {
+      if (coverPreview) URL.revokeObjectURL(coverPreview)
+    }
+  }, [coverPreview])
 
   const handleNameChange = (event: ChangeEvent<HTMLInputElement>) => {
     const next = event.target.value.slice(0, NAME_MAX_LENGTH)
@@ -37,6 +59,12 @@ export function AlbumCreateForm({
 
   const handleDateChange = (event: ChangeEvent<HTMLInputElement>) => {
     setEventDate(event.target.value)
+  }
+
+  const handleCoverChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null
+    event.target.value = ''
+    if (file) setCoverFile(file)
   }
 
   const isDateValid = Boolean(eventDate) && eventDate >= today
@@ -58,14 +86,31 @@ export function AlbumCreateForm({
       <div className="mt-[60px] flex justify-center">
         <div className="relative">
           <div className="relative h-[140px] w-[140px] overflow-hidden rounded-[26.67px] bg-[#a2a5ad]">
-            <img
-              src={ALBUM_COVER}
-              alt=""
-              className="absolute left-[-18.95%] top-[-44.53%] h-[204%] w-[137.91%] max-w-none"
-            />
+            {coverPreview ? (
+              <img
+                src={coverPreview}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : (
+              <img
+                src={ALBUM_COVER}
+                alt=""
+                className="absolute left-[-18.95%] top-[-44.53%] h-[204%] w-[137.91%] max-w-none"
+              />
+            )}
           </div>
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleCoverChange}
+            data-testid="album-cover-picker"
+          />
           <button
             type="button"
+            onClick={() => coverInputRef.current?.click()}
             aria-label="대표 이미지 변경"
             className="absolute -bottom-1 -right-1 flex h-[30px] w-[30px] items-center justify-center"
           >

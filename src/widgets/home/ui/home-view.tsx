@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { type EventResponse, getMyEvents } from '@/shared/api/event'
@@ -9,6 +9,7 @@ const HOME_COLLAGE = '/images/home-collage.png'
 
 export function HomeView() {
   const navigate = useNavigate()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [events, setEvents] = useState<EventResponse[] | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -17,6 +18,32 @@ export function HomeView() {
   const navigateToAlbum = (eventId: string) => {
     navigate(`/host/albums/${eventId}`)
   }
+
+  const handleCreateAlbum = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleCoverPicked = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null
+    event.target.value = ''
+    if (file) {
+      navigate('/albums/new', { state: { coverFile: file } })
+    } else {
+      navigate('/albums/new')
+    }
+  }
+
+  useEffect(() => {
+    const input = fileInputRef.current
+    if (!input) return
+    const handleCancel = () => {
+      navigate('/albums/new')
+    }
+    input.addEventListener('cancel', handleCancel)
+    return () => {
+      input.removeEventListener('cancel', handleCancel)
+    }
+  }, [navigate])
 
   const handleManagePhotos = async () => {
     if (isLoading) return
@@ -70,9 +97,17 @@ export function HomeView() {
         </h1>
 
         <div className="mt-[60px] flex w-full flex-col gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleCoverPicked}
+            data-testid="album-cover-picker"
+          />
           <button
             type="button"
-            onClick={() => navigate('/albums/new')}
+            onClick={handleCreateAlbum}
             className="flex h-[60px] w-full items-center justify-center rounded-2xl bg-[#222226] text-[18px] font-semibold text-white transition-opacity hover:opacity-90 active:opacity-80"
           >
             새 앨범 만들기
