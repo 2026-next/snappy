@@ -1,9 +1,50 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+
+import { type EventResponse, getMyEvents } from '@/shared/api/event'
+
+import { EventPickerModal } from './event-picker-modal'
 
 const HOME_COLLAGE = '/images/home-collage.png'
 
 export function HomeView() {
   const navigate = useNavigate()
+  const [events, setEvents] = useState<EventResponse[] | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [isPickerOpen, setIsPickerOpen] = useState(false)
+
+  const navigateToAlbum = (eventId: string) => {
+    navigate(`/host/albums/${eventId}`)
+  }
+
+  const handleManagePhotos = async () => {
+    if (isLoading) return
+    setError(null)
+    setIsLoading(true)
+    try {
+      const list = await getMyEvents()
+      setEvents(list)
+      if (list.length === 0) {
+        setError('아직 만든 앨범이 없어요. 새 앨범을 만들어 시작해보세요.')
+        return
+      }
+      if (list.length === 1) {
+        navigateToAlbum(list[0].id)
+        return
+      }
+      setIsPickerOpen(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '앨범 목록을 불러오지 못했어요')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSelectEvent = (eventId: string) => {
+    setIsPickerOpen(false)
+    navigateToAlbum(eventId)
+  }
 
   return (
     <main className="relative mx-auto flex min-h-screen w-full max-w-[402px] flex-col bg-white">
@@ -38,12 +79,30 @@ export function HomeView() {
           </button>
           <button
             type="button"
-            className="flex h-[60px] w-full items-center justify-center rounded-2xl bg-[#f4f6fa] text-[18px] font-semibold text-[#222226] transition-opacity hover:opacity-90 active:opacity-80"
+            onClick={handleManagePhotos}
+            disabled={isLoading}
+            className="flex h-[60px] w-full items-center justify-center rounded-2xl bg-[#f4f6fa] text-[18px] font-semibold text-[#222226] transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-60"
           >
-            내 사진 관리하기
+            {isLoading ? '앨범 목록 불러오는 중...' : '내 사진 관리하기'}
           </button>
+          {error && (
+            <p
+              role="alert"
+              className="text-center text-[12px] tracking-[-0.24px] text-[#e23a3a]"
+            >
+              {error}
+            </p>
+          )}
         </div>
       </div>
+
+      {isPickerOpen && events && events.length > 1 && (
+        <EventPickerModal
+          events={events}
+          onSelect={handleSelectEvent}
+          onClose={() => setIsPickerOpen(false)}
+        />
+      )}
     </main>
   )
 }
