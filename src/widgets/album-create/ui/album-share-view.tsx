@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
+import QRCode from 'qrcode'
 
 const ALBUM_COVER = '/images/album-cover-sample.png'
-const QR_SAMPLE = '/images/qr-sample.png'
 const COPY_ICON = '/icons/copy.svg'
 const QR_ICON = '/icons/qr.svg'
 const SHARE_ICON = '/icons/link.svg'
+
+const QR_RENDER_OPTIONS = {
+  errorCorrectionLevel: 'M',
+  margin: 1,
+  width: 480,
+  color: { dark: '#222226', light: '#ffffff' },
+} as const
 
 const ALLOWED_SHARE_PROTOCOLS = new Set(['http:', 'https:'])
 
@@ -46,6 +53,7 @@ export function AlbumShareView({
   const safeUrl = safeShareUrl(shareUrl)
   const [toast, setToast] = useState<string | null>(null)
   const [isSavingQr, setIsSavingQr] = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const toastTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -55,6 +63,24 @@ export function AlbumShareView({
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (!safeUrl) {
+      setQrDataUrl(null)
+      return
+    }
+    let cancelled = false
+    QRCode.toDataURL(safeUrl, QR_RENDER_OPTIONS)
+      .then((dataUrl) => {
+        if (!cancelled) setQrDataUrl(dataUrl)
+      })
+      .catch(() => {
+        if (!cancelled) setQrDataUrl(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [safeUrl])
 
   const showToast = (message: string) => {
     setToast(message)
@@ -79,6 +105,10 @@ export function AlbumShareView({
 
   const handleSaveQr = async () => {
     if (isSavingQr) return
+    if (!safeUrl) {
+      showToast('유효하지 않은 공유 링크예요')
+      return
+    }
     setIsSavingQr(true)
     try {
       const canvas = document.createElement('canvas')
@@ -93,9 +123,10 @@ export function AlbumShareView({
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
+      const qrDataUrlForSave = await QRCode.toDataURL(safeUrl, QR_RENDER_OPTIONS)
       const [cover, qr] = await Promise.all([
         loadImage(ALBUM_COVER),
-        loadImage(QR_SAMPLE),
+        loadImage(qrDataUrlForSave),
       ])
 
       const coverSize = 200
@@ -177,12 +208,18 @@ export function AlbumShareView({
       </h2>
 
       <div className="mt-[40px] flex items-center gap-2">
-        <div className="relative h-[109px] w-[106px] shrink-0 overflow-hidden">
-          <img
-            src={QR_SAMPLE}
-            alt={`${albumName} 공유 QR 코드`}
-            className="absolute left-0 top-[-22.29%] h-[135.67%] w-[281.7%] max-w-none"
-          />
+        <div className="relative h-[109px] w-[106px] shrink-0 overflow-hidden bg-white">
+          {qrDataUrl ? (
+            <img
+              src={qrDataUrl}
+              alt={`${albumName} 공유 QR 코드`}
+              className="h-full w-full object-contain"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-[10px] text-[#a2a5ad]">
+              QR 생성 중…
+            </div>
+          )}
         </div>
         <div className="flex flex-col">
           <p className="px-[10px] py-[4px] text-[12px] text-[#616369]">
@@ -230,10 +267,10 @@ export function AlbumShareView({
           type="button"
           onClick={handleShare}
           disabled={!safeUrl}
-          className="flex flex-1 flex-col items-center gap-[7px] rounded-2xl bg-[#f4f6fa] py-3 transition-opacity hover:opacity-90 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex flex-1 flex-col items-center gap-[7px] rounded-2xl bg-[#222226] py-3 transition-opacity hover:opacity-90 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <img src={SHARE_ICON} alt="" className="h-6 w-6" aria-hidden="true" />
-          <span className="text-[10px] text-[#222226]">공유하기</span>
+          <span className="text-[10px] text-white">공유하기</span>
         </button>
       </div>
 
