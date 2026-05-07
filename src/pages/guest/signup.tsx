@@ -1,23 +1,72 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
+import { ApiError } from '@/shared/api/client'
+import {
+  GUEST_RELATION_CODE,
+  GUEST_RELATION_LABELS,
+  guestRegister,
+} from '@/shared/api/guest'
+import { hydrateSession } from '@/shared/auth/hydrate-session'
+import { useAuthStore } from '@/shared/auth/use-auth-store'
 import { GuestSignupView } from '@/widgets/guest-signup/ui/guest-signup-view'
+
+type SignupResult = { ok: true } | { ok: false; message: string }
 
 export function GuestSignupPage() {
   const { albumId = '' } = useParams<{ albumId: string }>()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
-  const handleComplete = (
-    _name: string,
-    _relation: string,
-    _password: string,
-  ) => {
-    // TODO: API 연동 후 실제 처리
-    navigate(`/guest/${albumId}/upload/select`)
+  const handleComplete = async (
+    name: string,
+    relationLabel: string,
+    password: string,
+  ): Promise<SignupResult> => {
+    if (!albumId) {
+      return { ok: false, message: '유효하지 않은 초대 정보예요.' }
+    }
+
+    const relationKey = GUEST_RELATION_LABELS[relationLabel] ?? 'OTHER'
+    const relation = GUEST_RELATION_CODE[relationKey]
+
+    try {
+      const tokens = await guestRegister({
+        eventId: albumId,
+        name: name.trim(),
+        password,
+        relation,
+      })
+      useAuthStore.getState().setTokens(tokens, null)
+      await hydrateSession()
+
+      const from = searchParams.get('from') ?? 'upload'
+      const dest =
+        from === 'my-photos'
+          ? `/guest/${albumId}/my-photos`
+          : `/guest/${albumId}/upload/select`
+      navigate(dest, { replace: true })
+      return { ok: true }
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 422) {
+        return {
+          ok: false,
+          message:
+            '이미 사용 중인 이름이거나 입력 정보를 다시 확인해주세요.',
+        }
+      }
+      return {
+        ok: false,
+        message:
+          '잠시 후 다시 시도해주세요. 문제가 계속되면 주최자에게 문의해주세요.',
+      }
+    }
   }
 
   return (
     <GuestSignupView
-      onBack={() => navigate(`/guest/${albumId}/login`)}
+      onBack={() =>
+        navigate(`/guest/${albumId}/login?${searchParams.toString()}`)
+      }
       onComplete={handleComplete}
     />
   )

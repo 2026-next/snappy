@@ -54,6 +54,9 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: pair.refreshToken,
           tokenType: pair.tokenType,
           provider,
+          sessionType: null,
+          user: null,
+          guest: null,
           isAuthenticated: true,
         }),
       setSession: (me) =>

@@ -9,7 +9,11 @@ const RELATION_ROWS: string[][] = [
 
 interface GuestSignupViewProps {
   onBack: () => void
-  onComplete: (name: string, relation: string, password: string) => void
+  onComplete: (
+    name: string,
+    relation: string,
+    password: string,
+  ) => Promise<{ ok: true } | { ok: false; message: string }> | void
 }
 
 export function GuestSignupView({ onBack, onComplete }: GuestSignupViewProps) {
@@ -18,11 +22,14 @@ export function GuestSignupView({ onBack, onComplete }: GuestSignupViewProps) {
   const [relation, setRelation] = useState('')
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
+  const [submissionError, setSubmissionError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const passwordMismatch =
     passwordConfirm.length > 0 && password !== passwordConfirm
 
   const isNextDisabled =
+    isSubmitting ||
     (step === 1 && name.trim().length === 0) ||
     (step === 2 && relation.length === 0) ||
     (step === 3 &&
@@ -36,13 +43,26 @@ export function GuestSignupView({ onBack, onComplete }: GuestSignupViewProps) {
     else setStep(2)
   }
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step === 1) {
       setStep(2)
-    } else if (step === 2) {
+      return
+    }
+    if (step === 2) {
       setStep(3)
-    } else if (password === passwordConfirm && password.length > 0) {
-      onComplete(name, relation, password)
+      return
+    }
+    if (password !== passwordConfirm || password.length === 0) return
+
+    setSubmissionError(null)
+    setIsSubmitting(true)
+    try {
+      const result = await onComplete(name, relation, password)
+      if (result && result.ok === false) {
+        setSubmissionError(result.message)
+      }
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -179,6 +199,18 @@ export function GuestSignupView({ onBack, onComplete }: GuestSignupViewProps) {
         </div>
 
         <div className="grow" />
+
+        {submissionError && (
+          <div
+            role="alert"
+            className="mb-2 flex items-center gap-[4px] rounded-[12px] bg-[#fff0f0] px-3 py-2"
+          >
+            <DangerCircleIcon />
+            <span className="text-[12px] font-medium tracking-[-0.24px] text-[#ff3939]">
+              {submissionError}
+            </span>
+          </div>
+        )}
 
         <button
           type="button"

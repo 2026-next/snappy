@@ -3,6 +3,7 @@ import { createBrowserRouter, type RouteObject } from 'react-router-dom'
 import { App } from '@/app/App'
 import { AlbumCreatePage } from '@/pages/album-create'
 import { AuthPage } from '@/pages/auth'
+import { GuestJoinPage } from '@/pages/guest/join'
 import { GuestLoginPage } from '@/pages/guest/login'
 import { GuestOnboardingPage } from '@/pages/guest/onboarding'
 import { GuestSignupPage } from '@/pages/guest/signup'
@@ -29,6 +30,10 @@ export const routeTree: RouteObject[] = [
       },
 
       // Guest Routes
+      {
+        path: 'guest/join/:accessCode',
+        element: <GuestJoinPage />,
+      },
       {
         path: 'guest/:albumId',
         children: [
