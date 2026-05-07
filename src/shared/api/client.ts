@@ -75,13 +75,20 @@ export async function apiFetch<T>(
     headers: buildHeaders(init, accessToken),
   })
 
-  if (response.status === 401 && !skipAuth) {
+  if (
+    (response.status === 401 || response.status === 403) &&
+    !skipAuth &&
+    accessToken !== null
+  ) {
     const newToken = await tryRefresh()
     if (newToken) {
       response = await fetch(url, {
         ...init,
         headers: buildHeaders(init, newToken),
       })
+      if (response.status === 401 || response.status === 403) {
+        useAuthStore.getState().logout()
+      }
     } else {
       useAuthStore.getState().logout()
     }

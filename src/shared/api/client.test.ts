@@ -77,6 +77,75 @@ describe('apiFetch', () => {
     expect(useAuthStore.getState().refreshToken).toBe('rt-2')
   })
 
+  it('on 403, refreshes the token once and retries the original request', async () => {
+    useAuthStore.getState().setTokens(
+      { accessToken: 'old', refreshToken: 'rt-1', tokenType: 'Bearer' },
+      'google',
+    )
+
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        if (url.endsWith('/auth/refresh')) {
+          return new Response(
+            JSON.stringify({
+              accessToken: 'new',
+              refreshToken: 'rt-2',
+              tokenType: 'Bearer',
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+        const headers = new Headers(init?.headers)
+        if (headers.get('Authorization') === 'Bearer old') {
+          return new Response(JSON.stringify({ message: 'Forbidden' }), {
+            status: 403,
+          })
+        }
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      },
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await apiFetch<{ ok: boolean }>('/event/my-events')
+    expect(result).toEqual({ ok: true })
+    expect(useAuthStore.getState().accessToken).toBe('new')
+  })
+
+  it('on persistent 403 after refresh, throws ApiError exactly once without looping', async () => {
+    useAuthStore.getState().setTokens(
+      { accessToken: 'old', refreshToken: 'rt-1', tokenType: 'Bearer' },
+      'google',
+    )
+
+    let protectedCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.endsWith('/auth/refresh')) {
+        return new Response(
+          JSON.stringify({
+            accessToken: 'new',
+            refreshToken: 'rt-2',
+            tokenType: 'Bearer',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      protectedCalls += 1
+      return new Response(JSON.stringify({ message: 'Forbidden' }), {
+        status: 403,
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(apiFetch('/event/my-events')).rejects.toBeInstanceOf(ApiError)
+    expect(protectedCalls).toBe(2)
+    expect(useAuthStore.getState().isAuthenticated).toBe(false)
+  })
+
   it('on 401 with no refresh token, throws ApiError and clears auth', async () => {
     useAuthStore.getState().setTokens(
       { accessToken: 'at-1', refreshToken: '', tokenType: 'Bearer' },

@@ -15,6 +15,7 @@ import { GoogleCallbackPage } from '@/pages/auth/google-callback'
 import { KakaoCallbackPage } from '@/pages/auth/kakao-callback'
 import { HomePage } from '@/pages/home'
 import { HostAlbumPhotosPage } from '@/pages/host/album-photos'
+import { HostAlbumSharePage } from '@/pages/host/album-share'
 import { HostPhotoDetailPage } from '@/pages/host/photo-detail'
 import { HostPhotoSavePage } from '@/pages/host/photo-save'
 import { NotFoundPage } from '@/pages/not-found'
@@ -59,6 +60,10 @@ export const routeTree: RouteObject[] = [
           {
             path: 'albums/:albumId',
             element: <HostAlbumPhotosPage />,
+          },
+          {
+            path: 'albums/:albumId/share',
+            element: <HostAlbumSharePage />,
           },
           {
             path: 'albums/:albumId/photos/:photoId',

@@ -119,6 +119,7 @@ export const useAlbumPhotosStore = create<AlbumPhotosState>((set, get) => ({
           ...state.album,
           isLoading: false,
           error: errorMessage(error, '사진을 불러오지 못했어요'),
+          loadedEventId: eventId,
         },
       }))
     }
@@ -143,6 +144,7 @@ export const useAlbumPhotosStore = create<AlbumPhotosState>((set, get) => ({
           ...state.timeline,
           isLoading: false,
           error: errorMessage(error, '타임라인을 불러오지 못했어요'),
+          loadedEventId: eventId,
         },
       }))
     }
@@ -167,6 +169,7 @@ export const useAlbumPhotosStore = create<AlbumPhotosState>((set, get) => ({
           ...state.uploader,
           isLoading: false,
           error: errorMessage(error, '업로더별 사진을 불러오지 못했어요'),
+          loadedEventId: eventId,
         },
       }))
     }
@@ -191,6 +194,7 @@ export const useAlbumPhotosStore = create<AlbumPhotosState>((set, get) => ({
           ...state.similar,
           isLoading: false,
           error: errorMessage(error, '비슷한 구도를 불러오지 못했어요'),
+          loadedEventId: eventId,
         },
       }))
     }

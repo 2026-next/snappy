@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import { ApiError } from '@/shared/api/client'
 import {
+  buildEventShareUrl,
   createEvent,
   type CreateEventInput,
   type EventResponse,
@@ -89,7 +90,7 @@ export function AlbumCreatePage() {
       {createdEvent ? (
         <AlbumShareView
           albumName={createdEvent.name}
-          shareUrl={createdEvent.qrLink}
+          shareUrl={buildEventShareUrl(createdEvent.accessCode)}
           onGoHome={handleGoHome}
         />
       ) : (
