@@ -21,7 +21,7 @@ export function GuestMyPhotosPage() {
       uploaderName="김민준"
       photos={[]}
       initialMessage=""
-      onBack={() => navigate(-1)}
+      onBack={() => navigate(`/guest/${albumId}/login`)}
       onAddMore={() => navigate(`/guest/${albumId}/upload/select`)}
       onMessageSave={handleMessageSave}
       onPhotosDelete={handlePhotosDelete}
