@@ -8,6 +8,7 @@ import {
 } from '@/shared/api/guest'
 import { hydrateSession } from '@/shared/auth/hydrate-session'
 import { useAuthStore } from '@/shared/auth/use-auth-store'
+import { useGuestEventStore } from '@/shared/guest/use-guest-event-store'
 import { GuestSignupView } from '@/widgets/guest-signup/ui/guest-signup-view'
 
 type SignupResult = { ok: true } | { ok: false; message: string }
@@ -16,6 +17,7 @@ export function GuestSignupPage() {
   const { albumId = '' } = useParams<{ albumId: string }>()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const event = useGuestEventStore((s) => s.event)
 
   const handleComplete = async (
     name: string,
@@ -31,7 +33,7 @@ export function GuestSignupPage() {
 
     try {
       const tokens = await guestRegister({
-        eventId: albumId,
+        eventId: event?.id ?? albumId,
         name: name.trim(),
         password,
         relation,

@@ -4,12 +4,14 @@ import { ApiError } from '@/shared/api/client'
 import { guestLogin } from '@/shared/api/guest'
 import { hydrateSession } from '@/shared/auth/hydrate-session'
 import { useAuthStore } from '@/shared/auth/use-auth-store'
+import { useGuestEventStore } from '@/shared/guest/use-guest-event-store'
 import { GuestLoginView } from '@/widgets/guest-login/ui/guest-login-view'
 
 export function GuestLoginPage() {
   const { albumId = '' } = useParams<{ albumId: string }>()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const event = useGuestEventStore((s) => s.event)
 
   const handleSubmit = async (
     name: string,
@@ -21,7 +23,7 @@ export function GuestLoginPage() {
 
     try {
       const tokens = await guestLogin({
-        eventId: albumId,
+        eventId: event?.id ?? albumId,
         name: name.trim(),
         password,
       })
@@ -45,7 +47,7 @@ export function GuestLoginPage() {
 
   return (
     <GuestLoginView
-      onBack={() => navigate(`/guest/join/${albumId}`)}
+      onBack={() => navigate(`/guest/${albumId}/onboarding`)}
       onSubmit={handleSubmit}
       onCreateAccount={() =>
         navigate(`/guest/${albumId}/signup?${searchParams.toString()}`)
