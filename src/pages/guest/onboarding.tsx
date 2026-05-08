@@ -14,7 +14,7 @@ function formatDate(iso: string): string {
 }
 
 export function GuestOnboardingPage() {
-  const { albumId = '' } = useParams<{ albumId: string }>()
+  const { accessCode = '' } = useParams<{ accessCode: string }>()
   const navigate = useNavigate()
   const setEvent = useGuestEventStore((s) => s.setEvent)
 
@@ -23,23 +23,23 @@ export function GuestOnboardingPage() {
   const [eventDate, setEventDate] = useState<string | undefined>()
 
   useEffect(() => {
-    if (!albumId) return
-    getGuestEvent(albumId)
+    if (!accessCode) return
+    getGuestEvent(accessCode)
       .then((data) => {
         setEvent(data)
         setEventName(data.name)
         setEventDate(formatDate(data.eventDate))
       })
       .finally(() => setIsLoading(false))
-  }, [albumId, setEvent])
+  }, [accessCode, setEvent])
 
   return (
     <GuestOnboardingView
       eventName={eventName}
       eventDate={eventDate}
       isLoading={isLoading}
-      onUploadStart={() => navigate(`/guest/${albumId}/login?from=upload`)}
-      onViewMyPhotos={() => navigate(`/guest/${albumId}/login?from=my-photos`)}
+      onUploadStart={() => navigate(`/guest/${accessCode}/login?from=upload`)}
+      onViewMyPhotos={() => navigate(`/guest/${accessCode}/login?from=my-photos`)}
     />
   )
 }
