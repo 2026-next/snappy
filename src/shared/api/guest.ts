@@ -42,7 +42,7 @@ export const GUEST_RELATION_LABELS: Record<string, GuestRelation> = {
 
 export function joinByAccessCode(accessCode: string): Promise<GuestEventInfo> {
   const encoded = encodeURIComponent(accessCode)
-  return apiFetch<GuestEventInfo>(`/guest/join/${encoded}`, {
+  return apiFetch<GuestEventInfo>(`/guest/${encoded}/join`, {
     skipAuth: true,
   })
 }
