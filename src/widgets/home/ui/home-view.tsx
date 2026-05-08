@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { type EventResponse, getMyEvents } from '@/shared/api/event'
+import { useAuthStore } from '@/shared/auth/use-auth-store'
 
 import { EventPickerModal } from './event-picker-modal'
 
@@ -10,6 +11,8 @@ const HOME_COLLAGE = '/images/home-collage.png'
 export function HomeView() {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const sessionType = useAuthStore((s) => s.sessionType)
   const [events, setEvents] = useState<EventResponse[] | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -127,6 +130,15 @@ export function HomeView() {
             >
               {error}
             </p>
+          )}
+          {isAuthenticated && sessionType !== 'GUEST' && (
+            <button
+              type="button"
+              onClick={() => navigate('/me/profile')}
+              className="mt-2 self-center text-[12px] tracking-[-0.24px] text-[#a2a5ad] underline"
+            >
+              프로필 수정
+            </button>
           )}
         </div>
       </div>

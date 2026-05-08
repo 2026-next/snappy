@@ -1,8 +1,8 @@
 import { useState } from 'react'
 
 export interface Photo {
-  id: number
-  url: string
+  id: string
+  url: string | null
 }
 
 interface GuestMyPhotosViewProps {
@@ -11,10 +11,14 @@ interface GuestMyPhotosViewProps {
   uploaderName: string
   photos: Photo[]
   initialMessage?: string
+  isLoading?: boolean
+  errorMessage?: string | null
+  isSavingMessage?: boolean
+  isDeletingPhotos?: boolean
   onBack: () => void
   onAddMore: () => void
-  onMessageSave: (message: string) => void
-  onPhotosDelete: (photoIds: number[]) => void
+  onMessageSave: (message: string) => Promise<void> | void
+  onPhotosDelete: (photoIds: string[]) => Promise<void> | void
 }
 
 type ViewMode = 'view' | 'delete'
@@ -25,18 +29,29 @@ export function GuestMyPhotosView({
   uploaderName,
   photos,
   initialMessage = '',
+  isLoading = false,
+  errorMessage = null,
+  isSavingMessage = false,
+  isDeletingPhotos = false,
   onBack,
   onAddMore,
   onMessageSave,
   onPhotosDelete,
 }: GuestMyPhotosViewProps) {
   const [mode, setMode] = useState<ViewMode>('view')
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false)
+  const [trackedInitial, setTrackedInitial] = useState(initialMessage)
   const [currentMessage, setCurrentMessage] = useState(initialMessage)
   const [editingMessage, setEditingMessage] = useState(initialMessage)
 
-  const toggleSelect = (id: number) => {
+  if (initialMessage !== trackedInitial && !isMessageModalOpen) {
+    setTrackedInitial(initialMessage)
+    setCurrentMessage(initialMessage)
+    setEditingMessage(initialMessage)
+  }
+
+  const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -55,8 +70,9 @@ export function GuestMyPhotosView({
     setSelectedIds(new Set())
   }
 
-  const handleDelete = () => {
-    onPhotosDelete(Array.from(selectedIds))
+  const handleDelete = async () => {
+    if (isDeletingPhotos) return
+    await onPhotosDelete(Array.from(selectedIds))
     setMode('view')
     setSelectedIds(new Set())
   }
@@ -66,9 +82,12 @@ export function GuestMyPhotosView({
     setIsMessageModalOpen(true)
   }
 
-  const handleMessageSave = () => {
-    setCurrentMessage(editingMessage)
-    onMessageSave(editingMessage)
+  const handleMessageSave = async () => {
+    if (isSavingMessage) return
+    const trimmed = editingMessage.trim()
+    if (trimmed.length > 1000) return
+    await onMessageSave(trimmed)
+    setCurrentMessage(trimmed)
     setIsMessageModalOpen(false)
   }
 
@@ -81,7 +100,6 @@ export function GuestMyPhotosView({
   return (
     <div className="flex min-h-screen flex-col bg-white text-[#222226]">
       <div className="mx-auto flex w-full max-w-[402px] grow flex-col px-5 pt-6 pb-8">
-        {/* Header */}
         <header className="relative flex h-10 items-center justify-center">
           <button
             type="button"
@@ -95,7 +113,6 @@ export function GuestMyPhotosView({
         </header>
 
         <div className="mt-4 flex flex-col gap-2">
-          {/* 업로드 정보 카드 */}
           <div className="flex flex-col gap-2 rounded-[16px] bg-[#f4f6fa] px-5 py-3 text-[14px] leading-[1.4] tracking-[-0.28px]">
             <div className="flex gap-3">
               <span className="w-[90px] text-[#616369]">앨범 제목</span>
@@ -111,7 +128,26 @@ export function GuestMyPhotosView({
             </div>
           </div>
 
-          {/* 갤러리 추가 피커 */}
+          {currentMessage && (
+            <div className="flex flex-col gap-2 rounded-[16px] bg-[#f4f6fa] px-5 py-3 text-[14px] leading-[1.4] tracking-[-0.28px]">
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] font-semibold text-[#616369]">
+                  내가 남긴 축하 메세지
+                </span>
+                <button
+                  type="button"
+                  onClick={handleOpenMessageModal}
+                  className="text-[12px] tracking-[-0.24px] text-[#a2a5ad] underline"
+                >
+                  수정
+                </button>
+              </div>
+              <p className="whitespace-pre-wrap break-words text-[14px] text-[#222226]">
+                {currentMessage}
+              </p>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={onAddMore}
@@ -135,7 +171,21 @@ export function GuestMyPhotosView({
             </div>
           </div>
 
-          {/* 업로드한 사진 섹션 */}
+          {errorMessage && (
+            <p
+              role="alert"
+              className="text-center text-[12px] tracking-[-0.24px] text-[#e23a3a]"
+            >
+              {errorMessage}
+            </p>
+          )}
+
+          {isLoading && photos.length === 0 && (
+            <p className="text-center text-[12px] tracking-[-0.24px] text-[#a2a5ad]">
+              불러오는 중...
+            </p>
+          )}
+
           {photos.length > 0 && (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
@@ -177,11 +227,13 @@ export function GuestMyPhotosView({
                         onClick={() => mode === 'delete' && toggleSelect(photo.id)}
                         className="relative aspect-square min-w-0 flex-1 overflow-hidden rounded-[4px] border border-[#d7dbe2]"
                       >
-                        <img
-                          src={photo.url}
-                          alt=""
-                          className="absolute inset-0 h-full w-full object-cover"
-                        />
+                        {photo.url && (
+                          <img
+                            src={photo.url}
+                            alt=""
+                            className="absolute inset-0 h-full w-full object-cover"
+                          />
+                        )}
                         {mode === 'delete' && (
                           <span className="absolute right-1 top-1">
                             {selectedIds.has(photo.id) ? (
@@ -206,7 +258,6 @@ export function GuestMyPhotosView({
 
         <div className="grow" />
 
-        {/* 하단 버튼 */}
         {mode === 'view' ? (
           <button
             type="button"
@@ -214,22 +265,21 @@ export function GuestMyPhotosView({
             className="flex h-[60px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#222226] text-[18px] font-medium tracking-[-0.36px] text-white"
           >
             <MessageIcon />
-            축하 메세지 수정
+            {currentMessage ? '축하 메세지 수정' : '축하 메세지 남기기'}
           </button>
         ) : (
           <button
             type="button"
             onClick={handleDelete}
-            disabled={selectedIds.size === 0}
+            disabled={selectedIds.size === 0 || isDeletingPhotos}
             className="flex h-[60px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#222226] text-[18px] font-medium tracking-[-0.36px] text-white disabled:opacity-40"
           >
             <TrashIcon />
-            {selectedIds.size}개 사진 삭제
+            {isDeletingPhotos ? '삭제 중...' : `${selectedIds.size}개 사진 삭제`}
           </button>
         )}
       </div>
 
-      {/* 축하 메세지 수정 모달 */}
       {isMessageModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-5">
           <div className="flex w-full max-w-[362px] flex-col gap-5 rounded-[18px] bg-white px-4 py-5">
@@ -243,24 +293,31 @@ export function GuestMyPhotosView({
               <textarea
                 value={editingMessage}
                 onChange={(e) => setEditingMessage(e.target.value)}
-                className="h-[120px] w-full resize-none rounded-[6px] bg-white p-[10px] text-[14px] font-medium tracking-[-0.28px] text-[#222226] outline-none placeholder:text-[#b7bdc6]"
+                maxLength={1000}
+                disabled={isSavingMessage}
+                className="h-[120px] w-full resize-none rounded-[6px] bg-white p-[10px] text-[14px] font-medium tracking-[-0.28px] text-[#222226] outline-none placeholder:text-[#b7bdc6] disabled:opacity-60"
                 placeholder="예: 오늘 너무 아름다웠어요. 결혼 진심으로 축하해요!"
               />
+              <p className="text-right text-[10px] tracking-[-0.2px] text-[#a2a5ad]">
+                {editingMessage.length} / 1000
+              </p>
             </div>
             <div className="flex gap-4">
               <button
                 type="button"
                 onClick={handleMessageCancel}
-                className="h-[44px] flex-1 rounded-[16px] bg-[#f4f6fa] text-[18px] font-medium text-[#222226]"
+                disabled={isSavingMessage}
+                className="h-[44px] flex-1 rounded-[16px] bg-[#f4f6fa] text-[18px] font-medium text-[#222226] disabled:opacity-50"
               >
                 취소
               </button>
               <button
                 type="button"
                 onClick={handleMessageSave}
-                className="h-[44px] flex-1 rounded-[16px] bg-[#222226] text-[18px] font-medium text-white"
+                disabled={isSavingMessage || editingMessage.trim().length === 0}
+                className="h-[44px] flex-1 rounded-[16px] bg-[#222226] text-[18px] font-medium text-white disabled:opacity-50"
               >
-                완료
+                {isSavingMessage ? '저장 중...' : '완료'}
               </button>
             </div>
           </div>
