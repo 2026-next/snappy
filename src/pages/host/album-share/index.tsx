@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import {
-  buildEventShareUrl,
   type EventResponse,
   getMyEvents,
 } from '@/shared/api/event'
@@ -86,7 +85,7 @@ export function HostAlbumSharePage() {
       {!isLoading && event && (
         <AlbumShareView
           albumName={event.name}
-          shareUrl={buildEventShareUrl(event.accessCode)}
+          shareUrl={event.qrLink}
           onGoHome={() => navigate('/')}
         />
       )}
