@@ -16,7 +16,7 @@ export type UploadFilesResult = {
   failures: Array<{ file: File; error: unknown }>
 }
 
-const ALLOWED_UPLOAD_HOST_PATTERN = /(^|\.)amazonaws\.com$/i
+const ALLOWED_UPLOAD_HOST_PATTERN = /(^|\.)amazonaws\.com$|(^|\.)googleapis\.com$/i
 
 function inferMimeType(file: File): string {
   if (file.type) return file.type

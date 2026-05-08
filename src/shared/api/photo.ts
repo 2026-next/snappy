@@ -398,14 +398,14 @@ export async function deletePhoto(photoId: string): Promise<void> {
 export async function createUploadUrls(
   input: CreateUploadUrlsInput,
 ): Promise<UploadUrlEntry[]> {
-  const raw = await apiFetch<UploadUrlEntry[] | { items?: UploadUrlEntry[] }>(
+  const raw = await apiFetch<UploadUrlEntry[] | { uploadUrls?: UploadUrlEntry[]; items?: UploadUrlEntry[] }>(
     `/photo/upload-url`,
     {
       method: 'POST',
       body: JSON.stringify(input),
     },
   )
-  return Array.isArray(raw) ? raw : (raw.items ?? [])
+  return Array.isArray(raw) ? raw : (raw.uploadUrls ?? raw.items ?? [])
 }
 
 export async function createPhoto(
