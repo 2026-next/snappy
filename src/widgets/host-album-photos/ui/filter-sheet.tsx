@@ -40,7 +40,10 @@ export function FilterSheet({
     }))
   }
 
-  const handleReset = () => setDraft(EMPTY_FILTER)
+  const handleReset = () => {
+    setDraft(EMPTY_FILTER)
+    onApply(EMPTY_FILTER)
+  }
   const handleApply = () => onApply(draft)
 
   return (

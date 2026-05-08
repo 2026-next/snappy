@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
-import { getGuestEvent } from '@/shared/api/guest'
 import { useGuestEventStore } from '@/shared/guest/use-guest-event-store'
 import { GuestOnboardingView } from '@/widgets/guest-onboarding/ui/guest-onboarding-view'
 
@@ -14,32 +12,16 @@ function formatDate(iso: string): string {
 }
 
 export function GuestOnboardingPage() {
-  const { accessCode = '' } = useParams<{ accessCode: string }>()
+  const { albumId = '' } = useParams<{ albumId: string }>()
   const navigate = useNavigate()
-  const setEvent = useGuestEventStore((s) => s.setEvent)
-
-  const [isLoading, setIsLoading] = useState(true)
-  const [eventName, setEventName] = useState<string | undefined>()
-  const [eventDate, setEventDate] = useState<string | undefined>()
-
-  useEffect(() => {
-    if (!accessCode) return
-    getGuestEvent(accessCode)
-      .then((data) => {
-        setEvent(data)
-        setEventName(data.name)
-        setEventDate(formatDate(data.eventDate))
-      })
-      .finally(() => setIsLoading(false))
-  }, [accessCode, setEvent])
+  const event = useGuestEventStore((s) => s.event)
 
   return (
     <GuestOnboardingView
-      eventName={eventName}
-      eventDate={eventDate}
-      isLoading={isLoading}
-      onUploadStart={() => navigate(`/guest/${accessCode}/login?from=upload`)}
-      onViewMyPhotos={() => navigate(`/guest/${accessCode}/login?from=my-photos`)}
+      eventName={event?.name}
+      eventDate={event ? formatDate(event.eventDate) : undefined}
+      onUploadStart={() => navigate(`/guest/${albumId}/login?from=upload`)}
+      onViewMyPhotos={() => navigate(`/guest/${albumId}/login?from=my-photos`)}
     />
   )
 }

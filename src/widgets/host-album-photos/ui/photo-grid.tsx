@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import { type CategoryKey } from '@/widgets/host-album-photos/model/category'
 
@@ -31,14 +31,16 @@ export function PhotoGrid({
   onToggleFavorite,
 }: PhotoGridProps) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { albumId } = useParams()
+  const eventName = (location.state as { eventName?: string } | null)?.eventName
   const isFavoriteView = category === 'favorite'
   const headerIcon = isFavoriteView ? HEART_HEADER : PHOTO_ICON
   const headerLabel = isFavoriteView ? '즐겨찾기한 사진' : '업로드된 사진'
 
   const handleOpenPhoto = (photoId: string) => {
     if (!albumId) return
-    navigate(`/host/albums/${albumId}/photos/${photoId}`)
+    navigate(`/host/albums/${albumId}/photos/${photoId}`, { state: { eventName } })
   }
 
   return (

@@ -1,9 +1,17 @@
+import { useEffect, useRef, useState } from 'react'
+import QRCode from 'qrcode'
+
 const ALBUM_COVER = '/images/album-cover-sample.png'
-const QR_SAMPLE = '/images/qr-sample.png'
 const COPY_ICON = '/icons/copy.svg'
 const QR_ICON = '/icons/qr.svg'
-const KAKAO_TALK_ICON = '/icons/kakao-talk.svg'
-const INSTAGRAM_ICON = '/icons/instagram.svg'
+const SHARE_ICON = '/icons/link.svg'
+
+const QR_RENDER_OPTIONS = {
+  errorCorrectionLevel: 'M',
+  margin: 1,
+  width: 480,
+  color: { dark: '#222226', light: '#ffffff' },
+} as const
 
 const ALLOWED_SHARE_PROTOCOLS = new Set(['http:', 'https:'])
 
@@ -16,24 +24,26 @@ function safeShareUrl(raw: string): string | null {
   }
 }
 
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error(`Failed to load image: ${src}`))
+    img.src = src
+  })
+}
+
+function sanitizeFilename(input: string): string {
+  const cleaned = input.replace(/[\\/:*?"<>|]+/g, '').trim()
+  return cleaned.length > 0 ? cleaned : 'snappy-album'
+}
+
 type AlbumShareViewProps = {
   albumName: string
   shareUrl: string
   onGoHome: () => void
 }
-
-type ShareAction = {
-  key: string
-  label: string
-  icon: string
-}
-
-const SHARE_ACTIONS: ShareAction[] = [
-  { key: 'copy', label: '링크 복사', icon: COPY_ICON },
-  { key: 'qr', label: 'QR 저장', icon: QR_ICON },
-  { key: 'kakao', label: '카카오톡', icon: KAKAO_TALK_ICON },
-  { key: 'instagram', label: '인스타그램', icon: INSTAGRAM_ICON },
-]
 
 export function AlbumShareView({
   albumName,
@@ -41,13 +51,143 @@ export function AlbumShareView({
   onGoHome,
 }: AlbumShareViewProps) {
   const safeUrl = safeShareUrl(shareUrl)
+  const [toast, setToast] = useState<string | null>(null)
+  const [isSavingQr, setIsSavingQr] = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+  const toastTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) {
+        window.clearTimeout(toastTimerRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!safeUrl) {
+      setQrDataUrl(null)
+      return
+    }
+    let cancelled = false
+    QRCode.toDataURL(safeUrl, QR_RENDER_OPTIONS)
+      .then((dataUrl) => {
+        if (!cancelled) setQrDataUrl(dataUrl)
+      })
+      .catch(() => {
+        if (!cancelled) setQrDataUrl(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [safeUrl])
+
+  const showToast = (message: string) => {
+    setToast(message)
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current)
+    }
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null)
+      toastTimerRef.current = null
+    }, 2000)
+  }
 
   const handleCopy = async () => {
     if (!safeUrl) return
     try {
       await navigator.clipboard.writeText(safeUrl)
+      showToast('링크가 복사되었어요')
     } catch {
-      // Clipboard may be unavailable (insecure context, denied permission)
+      showToast('복사에 실패했어요')
+    }
+  }
+
+  const handleSaveQr = async () => {
+    if (isSavingQr) return
+    if (!safeUrl) {
+      showToast('유효하지 않은 공유 링크예요')
+      return
+    }
+    setIsSavingQr(true)
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = 600
+      canvas.height = 800
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        showToast('QR 저장에 실패했어요')
+        return
+      }
+
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      const qrDataUrlForSave = await QRCode.toDataURL(safeUrl, QR_RENDER_OPTIONS)
+      const [cover, qr] = await Promise.all([
+        loadImage(ALBUM_COVER),
+        loadImage(qrDataUrlForSave),
+      ])
+
+      const coverSize = 200
+      const coverX = (canvas.width - coverSize) / 2
+      ctx.drawImage(cover, coverX, 60, coverSize, coverSize)
+
+      ctx.fillStyle = '#222226'
+      ctx.font = 'bold 28px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(albumName, canvas.width / 2, 320)
+
+      const qrSize = 320
+      const qrX = (canvas.width - qrSize) / 2
+      ctx.drawImage(qr, qrX, 380, qrSize, qrSize)
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((b) => resolve(b), 'image/png')
+      })
+      if (!blob) {
+        showToast('QR 저장에 실패했어요')
+        return
+      }
+
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = `${sanitizeFilename(albumName)}-qr.png`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(objectUrl)
+      showToast('QR 이미지를 저장했어요')
+    } catch {
+      showToast('QR 저장에 실패했어요')
+    } finally {
+      setIsSavingQr(false)
+    }
+  }
+
+  const handleShare = async () => {
+    if (!safeUrl) return
+    const shareData = {
+      title: albumName,
+      text: `${albumName} 사진 공유 앨범`,
+      url: safeUrl,
+    }
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share(shareData)
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return
+        showToast('공유에 실패했어요')
+      }
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(safeUrl)
+      showToast('공유 기능이 지원되지 않아 링크를 복사했어요')
+    } catch {
+      showToast('공유에 실패했어요')
     }
   }
 
@@ -68,12 +208,18 @@ export function AlbumShareView({
       </h2>
 
       <div className="mt-[40px] flex items-center gap-2">
-        <div className="relative h-[109px] w-[106px] shrink-0 overflow-hidden">
-          <img
-            src={QR_SAMPLE}
-            alt={`${albumName} 공유 QR 코드`}
-            className="absolute left-0 top-[-22.29%] h-[135.67%] w-[281.7%] max-w-none"
-          />
+        <div className="relative h-[109px] w-[106px] shrink-0 overflow-hidden bg-white">
+          {qrDataUrl ? (
+            <img
+              src={qrDataUrl}
+              alt={`${albumName} 공유 QR 코드`}
+              className="h-full w-full object-contain"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-[10px] text-[#a2a5ad]">
+              QR 생성 중…
+            </div>
+          )}
         </div>
         <div className="flex flex-col">
           <p className="px-[10px] py-[4px] text-[12px] text-[#616369]">
@@ -97,27 +243,35 @@ export function AlbumShareView({
       </div>
 
       <div className="mt-[10px] flex items-center gap-2">
-        {SHARE_ACTIONS.map((action) => {
-          const isCopy = action.key === 'copy'
-          const disabled = isCopy && !safeUrl
-          return (
-            <button
-              key={action.key}
-              type="button"
-              onClick={isCopy ? handleCopy : undefined}
-              disabled={disabled}
-              className="flex flex-1 flex-col items-center gap-[7px] rounded-2xl bg-[#f4f6fa] py-3 transition-opacity hover:opacity-90 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <img
-                src={action.icon}
-                alt=""
-                className="h-6 w-6"
-                aria-hidden="true"
-              />
-              <span className="text-[10px] text-[#222226]">{action.label}</span>
-            </button>
-          )
-        })}
+        <button
+          type="button"
+          onClick={handleCopy}
+          disabled={!safeUrl}
+          className="flex flex-1 flex-col items-center gap-[7px] rounded-2xl bg-[#f4f6fa] py-3 transition-opacity hover:opacity-90 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <img src={COPY_ICON} alt="" className="h-6 w-6" aria-hidden="true" />
+          <span className="text-[10px] text-[#222226]">링크 복사</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleSaveQr}
+          disabled={isSavingQr}
+          className="flex flex-1 flex-col items-center gap-[7px] rounded-2xl bg-[#f4f6fa] py-3 transition-opacity hover:opacity-90 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <img src={QR_ICON} alt="" className="h-6 w-6" aria-hidden="true" />
+          <span className="text-[10px] text-[#222226]">
+            {isSavingQr ? '저장 중...' : 'QR 저장'}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={handleShare}
+          disabled={!safeUrl}
+          className="flex flex-1 flex-col items-center gap-[7px] rounded-2xl bg-[#222226] py-3 transition-opacity hover:opacity-90 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <img src={SHARE_ICON} alt="" className="h-6 w-6" aria-hidden="true" />
+          <span className="text-[10px] text-white">공유하기</span>
+        </button>
       </div>
 
       <div className="flex-1" />
@@ -129,6 +283,18 @@ export function AlbumShareView({
       >
         홈으로 돌아가기
       </button>
+
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none fixed inset-x-0 bottom-28 z-50 flex justify-center px-4"
+        >
+          <div className="rounded-full bg-[#222226]/95 px-4 py-2 text-[13px] font-medium text-white shadow-lg">
+            {toast}
+          </div>
+        </div>
+      )}
     </section>
   )
 }

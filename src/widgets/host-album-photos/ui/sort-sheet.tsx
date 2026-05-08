@@ -19,7 +19,10 @@ export function SortSheet({
 }: SortSheetProps) {
   const [draft, setDraft] = useState<SortKey>(initialValue)
 
-  const handleReset = () => setDraft(DEFAULT_SORT)
+  const handleReset = () => {
+    setDraft(DEFAULT_SORT)
+    onApply(DEFAULT_SORT)
+  }
   const handleApply = () => onApply(draft)
 
   return (

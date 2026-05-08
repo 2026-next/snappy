@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { ApiError } from '@/shared/api/client'
 import {
+  buildEventShareUrl,
   createEvent,
   type CreateEventInput,
   type EventResponse,
@@ -22,8 +23,15 @@ function errorMessageFor(error: unknown): string {
   return '네트워크 오류가 발생했어요. 잠시 후 다시 시도해 주세요.'
 }
 
+type AlbumCreateLocationState = {
+  coverFile?: File | null
+}
+
 export function AlbumCreatePage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const initialCoverFile =
+    (location.state as AlbumCreateLocationState | null)?.coverFile ?? null
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const [createdEvent, setCreatedEvent] = useState<EventResponse | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -82,7 +90,7 @@ export function AlbumCreatePage() {
       {createdEvent ? (
         <AlbumShareView
           albumName={createdEvent.name}
-          shareUrl={createdEvent.qrLink}
+          shareUrl={buildEventShareUrl(createdEvent.accessCode)}
           onGoHome={handleGoHome}
         />
       ) : (
@@ -90,6 +98,7 @@ export function AlbumCreatePage() {
           onCreate={handleCreate}
           isSubmitting={isSubmitting}
           errorMessage={errorMessage}
+          initialCoverFile={initialCoverFile}
         />
       )}
     </main>

@@ -5,7 +5,7 @@ import { useAuthStore } from '@/shared/auth/use-auth-store'
 
 const KAKAO_ICON = '/icons/kakao.svg'
 const GOOGLE_ICON = '/icons/google.svg'
-const LOGO_PLACEHOLDER = '/icons/logo-placeholder.png'
+const LOGO_SYMBOL = '/images/logo/logo_simbol.svg'
 const AUTH_HERO = '/images/welcome-hero.png'
 
 const DEBUG_ACCESS_TOKEN =
@@ -52,9 +52,10 @@ export function AuthView() {
       <div className="relative flex flex-1 flex-col items-center px-5 pb-10">
         <div className="mt-[510px] flex items-center gap-2">
           <img
-            src={LOGO_PLACEHOLDER}
+            src={LOGO_SYMBOL}
             alt=""
-            className="h-[39px] w-[39px] object-cover"
+            aria-hidden="true"
+            className="h-[39px] w-[39px] object-contain"
           />
           <h1 className="text-[40px] font-bold leading-none text-[#212121]">
             Snappy
