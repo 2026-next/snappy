@@ -19,6 +19,7 @@ import { HostAlbumSharePage } from '@/pages/host/album-share'
 import { HostPhotoDetailPage } from '@/pages/host/photo-detail'
 import { HostPhotoSavePage } from '@/pages/host/photo-save'
 import { NotFoundPage } from '@/pages/not-found'
+import { ProfilePage } from '@/pages/profile'
 
 export const routeTree: RouteObject[] = [
   {
@@ -91,6 +92,10 @@ export const routeTree: RouteObject[] = [
       {
         path: 'albums/new',
         element: <AlbumCreatePage />,
+      },
+      {
+        path: 'me/profile',
+        element: <ProfilePage />,
       },
       {
         path: '*',
