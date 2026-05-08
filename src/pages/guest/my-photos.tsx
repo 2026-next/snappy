@@ -110,7 +110,7 @@ export function GuestMyPhotosPage() {
       errorMessage={errorMessage}
       isSavingMessage={isSavingMessage}
       isDeletingPhotos={isDeletingPhotos}
-      onBack={() => navigate(`/guest/${albumId}/upload/select`)}
+      onBack={() => navigate(`/guest/${albumId}/login`)}
       onAddMore={() => navigate(`/guest/${albumId}/upload/select`)}
       onMessageSave={handleMessageSave}
       onPhotosDelete={handlePhotosDelete}
