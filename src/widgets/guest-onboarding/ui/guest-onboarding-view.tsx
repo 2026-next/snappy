@@ -1,11 +1,17 @@
 import { SnappyLogo } from '@/shared/ui/snappy-logo'
 
 interface GuestOnboardingViewProps {
+  eventName?: string
+  eventDate?: string
+  isLoading?: boolean
   onUploadStart: () => void
   onViewMyPhotos: () => void
 }
 
 export function GuestOnboardingView({
+  eventName,
+  eventDate,
+  isLoading = false,
   onUploadStart,
   onViewMyPhotos,
 }: GuestOnboardingViewProps) {
@@ -20,9 +26,13 @@ export function GuestOnboardingView({
           <section className="mt-10 flex flex-col items-center gap-2">
             <div className="size-[140px] overflow-hidden rounded-[26.667px] bg-[#a2a5ad]" />
             <div className="flex w-full flex-col items-center">
-              <p className="px-2.5 py-2.5 text-center text-[18px] font-medium tracking-[-0.36px]">
-                민수 &amp; 지연 Wedding
-              </p>
+              {isLoading ? (
+                <div className="my-2.5 h-6 w-48 animate-pulse rounded-md bg-[#e8eaed]" />
+              ) : (
+                <p className="px-2.5 py-2.5 text-center text-[18px] font-medium tracking-[-0.36px]">
+                  {eventName ?? ''}
+                </p>
+              )}
               <p className="pb-2.5 text-center text-[14px] tracking-[-0.28px] text-[#a2a5ad]">
                 촬영하신 사진을 자유롭게 업로드해주세요
               </p>
@@ -44,8 +54,12 @@ export function GuestOnboardingView({
               </div>
               <div className="flex flex-col gap-2 rounded-[16px] bg-[#f4f6fa] px-5 py-3">
                 <div className="flex gap-3">
-                  <span className="w-16 text-[#616369]">업로드 가능 기간</span>
-                  <span>2026.05.16 - 2026.05.23</span>
+                  <span className="w-16 text-[#616369]">이벤트 날짜</span>
+                  {isLoading ? (
+                    <div className="h-4 w-24 animate-pulse rounded bg-[#e8eaed]" />
+                  ) : (
+                    <span>{eventDate ?? '-'}</span>
+                  )}
                 </div>
                 <div className="flex gap-3">
                   <span className="w-16 text-[#616369]">지원 형식</span>

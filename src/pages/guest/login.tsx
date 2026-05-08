@@ -45,7 +45,7 @@ export function GuestLoginPage() {
 
   return (
     <GuestLoginView
-      onBack={() => navigate(`/guest/${albumId}/onboarding`)}
+      onBack={() => navigate(`/guest/join/${albumId}`)}
       onSubmit={handleSubmit}
       onCreateAccount={() =>
         navigate(`/guest/${albumId}/signup?${searchParams.toString()}`)

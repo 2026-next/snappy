@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { joinByAccessCode } from '@/shared/api/guest'
+import { useGuestEventStore } from '@/shared/guest/use-guest-event-store'
 
 type JoinStatus = 'loading' | 'error'
 
@@ -11,6 +12,7 @@ const NOT_FOUND_MESSAGE = '초대 정보를 찾을 수 없어요. 링크를 다�
 export function GuestJoinPage() {
   const { accessCode = '' } = useParams<{ accessCode: string }>()
   const navigate = useNavigate()
+  const setEvent = useGuestEventStore((s) => s.setEvent)
   const initialStatus: JoinStatus = accessCode ? 'loading' : 'error'
   const [status, setStatus] = useState<JoinStatus>(initialStatus)
   const [errorMessage, setErrorMessage] = useState<string>(
@@ -26,6 +28,7 @@ export function GuestJoinPage() {
       try {
         const event = await joinByAccessCode(accessCode)
         if (cancelled) return
+        setEvent(event)
         navigate(`/guest/${event.id}/onboarding`, { replace: true })
       } catch {
         if (cancelled) return

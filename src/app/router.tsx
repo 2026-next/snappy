@@ -32,10 +32,7 @@ export const routeTree: RouteObject[] = [
       },
 
       // Guest Routes
-      {
-        path: 'guest/join/:accessCode',
-        element: <GuestJoinPage />,
-      },
+      { path: 'guest/join/:accessCode', element: <GuestJoinPage /> },
       {
         path: 'guest/:albumId',
         children: [
