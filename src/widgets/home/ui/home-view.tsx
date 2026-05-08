@@ -18,8 +18,8 @@ export function HomeView() {
   const [error, setError] = useState<string | null>(null)
   const [isPickerOpen, setIsPickerOpen] = useState(false)
 
-  const navigateToAlbum = (eventId: string) => {
-    navigate(`/host/albums/${eventId}`)
+  const navigateToAlbum = (eventId: string, eventName?: string) => {
+    navigate(`/host/albums/${eventId}`, { state: { eventName } })
   }
 
   const handleCreateAlbum = () => {
@@ -60,7 +60,7 @@ export function HomeView() {
         return
       }
       if (list.length === 1) {
-        navigateToAlbum(list[0].id)
+        navigateToAlbum(list[0].id, list[0].name)
         return
       }
       setIsPickerOpen(true)
@@ -73,7 +73,8 @@ export function HomeView() {
 
   const handleSelectEvent = (eventId: string) => {
     setIsPickerOpen(false)
-    navigateToAlbum(eventId)
+    const eventName = events?.find((e) => e.id === eventId)?.name
+    navigateToAlbum(eventId, eventName)
   }
 
   return (

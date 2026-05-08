@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
+import { getMyEvents } from '@/shared/api/event'
 import { type PhotoSummary } from '@/shared/api/photo'
 import { type CategoryKey } from '@/widgets/host-album-photos/model/category'
 import {
@@ -31,8 +32,6 @@ import { TimelineList, type RowBucket } from './timeline-list'
 
 const PLUS_CIRCLE = '/icons/plus-circle.svg'
 
-const ALBUM_TITLE = '민수 & 지연 Wedding'
-
 type Overlay = 'none' | 'filter' | 'sort' | 'create-group' | 'select-group'
 
 function toGridItem(photo: PhotoSummary): PhotoItem {
@@ -49,7 +48,11 @@ function toTimelinePhoto(photo: PhotoSummary): PhotoItem & { isAi: boolean } {
 
 export function AlbumPhotosView() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { albumId = '' } = useParams<{ albumId: string }>()
+
+  const stateEventName = (location.state as { eventName?: string } | null)?.eventName
+  const [albumTitle, setAlbumTitle] = useState(stateEventName ?? '')
 
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<CategoryKey>('all')
@@ -90,6 +93,16 @@ export function AlbumPhotosView() {
   const removePhotoFromGroup = useGroupStore(
     (state) => state.removePhotoFromGroup,
   )
+
+  useEffect(() => {
+    if (albumTitle || !albumId) return
+    getMyEvents()
+      .then((events) => {
+        const event = events.find((e) => e.id === albumId)
+        if (event) setAlbumTitle(event.name)
+      })
+      .catch(() => {})
+  }, [albumId, albumTitle])
 
   useEffect(() => {
     resetForEvent(albumId)
@@ -577,7 +590,7 @@ export function AlbumPhotosView() {
   return (
     <main className="relative mx-auto flex min-h-screen w-full max-w-[402px] flex-col bg-white">
       <AlbumPhotosHeader
-        title={ALBUM_TITLE}
+        title={albumTitle}
         onBack={handleBack}
         onMore={handleMore}
       />

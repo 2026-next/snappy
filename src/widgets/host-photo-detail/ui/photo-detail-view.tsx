@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
+import { getMyEvents } from '@/shared/api/event'
 import {
   RELATION_LABELS,
   type PhotoDetail,
@@ -18,7 +19,6 @@ const HEART_FILLED = '/icons/heart-filled.svg'
 const AI_SPARKLE = '/icons/ai-sparkle.svg'
 
 const FALLBACK_PHOTO = '/images/album-cover-sample.png'
-const ALBUM_TITLE = '민수 & 지연 Wedding'
 
 function formatDate(iso: string | null): string {
   if (!iso) return ''
@@ -38,13 +38,27 @@ function formatTime(iso: string | null): string {
 
 export function PhotoDetailView() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { albumId, photoId } = useParams<{ albumId: string; photoId: string }>()
+
+  const stateEventName = (location.state as { eventName?: string } | null)?.eventName
+  const [albumTitle, setAlbumTitle] = useState(stateEventName ?? '')
 
   const [photo, setPhoto] = useState<PhotoDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isMutating, setIsMutating] = useState(false)
+
+  useEffect(() => {
+    if (albumTitle || !albumId) return
+    getMyEvents()
+      .then((events) => {
+        const event = events.find((e) => e.id === albumId)
+        if (event) setAlbumTitle(event.name)
+      })
+      .catch(() => {})
+  }, [albumId, albumTitle])
 
   useEffect(() => {
     if (!photoId) return
@@ -136,7 +150,7 @@ export function PhotoDetailView() {
           />
         </button>
         <h1 className="text-[20px] font-bold tracking-[-0.4px] text-[#222226]">
-          {ALBUM_TITLE}
+          {albumTitle}
         </h1>
         <button
           type="button"
