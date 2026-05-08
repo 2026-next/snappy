@@ -9,18 +9,25 @@ interface FileEntry {
 }
 
 interface GuestUploadSelectViewProps {
+  initialFiles?: File[]
   onBack: () => void
   onNext: (files: File[]) => void
 }
 
-export function GuestUploadSelectView({ onBack, onNext }: GuestUploadSelectViewProps) {
-  const [entries, setEntries] = useState<FileEntry[]>([])
+export function GuestUploadSelectView({ initialFiles = [], onBack, onNext }: GuestUploadSelectViewProps) {
+  const [entries, setEntries] = useState<FileEntry[]>(() =>
+    initialFiles.map((file, i) => ({
+      id: i + 1,
+      file,
+      preview: URL.createObjectURL(file),
+    }))
+  )
   const [mode, setMode] = useState<ViewMode>('view')
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [isExitModalOpen, setIsExitModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const entriesRef = useRef<FileEntry[]>([])
-  const idCounterRef = useRef(0)
+  const idCounterRef = useRef(initialFiles.length)
 
   useEffect(() => {
     entriesRef.current = entries

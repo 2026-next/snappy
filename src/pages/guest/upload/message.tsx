@@ -78,7 +78,7 @@ export function GuestUploadMessagePage() {
   return (
     <GuestUploadMessageView
       files={files}
-      onBack={() => navigate(`/guest/${albumId}/upload/select`)}
+      onBack={() => navigate(`/guest/${albumId}/upload/select`, { state: { files } })}
       onComplete={handleComplete}
       isSubmitting={isSubmitting}
       errorMessage={errorMessage}
