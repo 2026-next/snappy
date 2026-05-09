@@ -21,6 +21,7 @@ export function GuestOnboardingPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [eventName, setEventName] = useState<string | undefined>()
   const [eventDate, setEventDate] = useState<string | undefined>()
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (!albumId) return
@@ -29,6 +30,7 @@ export function GuestOnboardingPage() {
         setEvent(data)
         setEventName(data.name)
         setEventDate(formatDate(data.eventDate))
+        setThumbnailUrl(data.thumbnailUrl ?? null)
       })
       .finally(() => setIsLoading(false))
   }, [albumId, setEvent])
@@ -37,6 +39,7 @@ export function GuestOnboardingPage() {
     <GuestOnboardingView
       eventName={eventName}
       eventDate={eventDate}
+      thumbnailUrl={thumbnailUrl}
       isLoading={isLoading}
       onUploadStart={() => navigate(`/guest/${albumId}/login?from=upload`)}
       onViewMyPhotos={() => navigate(`/guest/${albumId}/login?from=my-photos`)}
