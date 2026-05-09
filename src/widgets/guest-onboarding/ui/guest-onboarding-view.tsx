@@ -3,6 +3,7 @@ import { SnappyLogo } from '@/shared/ui/snappy-logo'
 interface GuestOnboardingViewProps {
   eventName?: string
   eventDate?: string
+  thumbnailUrl?: string | null
   isLoading?: boolean
   onUploadStart: () => void
   onViewMyPhotos: () => void
@@ -11,6 +12,7 @@ interface GuestOnboardingViewProps {
 export function GuestOnboardingView({
   eventName,
   eventDate,
+  thumbnailUrl,
   isLoading = false,
   onUploadStart,
   onViewMyPhotos,
@@ -24,7 +26,11 @@ export function GuestOnboardingView({
 
         <main className="grow">
           <section className="mt-10 flex flex-col items-center gap-2">
-            <div className="size-[140px] overflow-hidden rounded-[26.667px] bg-[#a2a5ad]" />
+            <div className="size-[140px] overflow-hidden rounded-[26.667px] bg-[#a2a5ad]">
+              {thumbnailUrl && (
+                <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
+              )}
+            </div>
             <div className="flex w-full flex-col items-center">
               {isLoading ? (
                 <div className="my-2.5 h-6 w-48 animate-pulse rounded-md bg-[#e8eaed]" />

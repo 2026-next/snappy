@@ -9,6 +9,8 @@ export type GuestEventInfo = {
   updatedAt: string
   ownerId: string
   accessCode: string
+  thumbnailObjectKey?: string | null
+  thumbnailUrl?: string | null
 }
 
 export type GuestRelation =
