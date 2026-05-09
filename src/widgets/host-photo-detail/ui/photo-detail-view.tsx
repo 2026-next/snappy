@@ -121,7 +121,12 @@ export function PhotoDetailView() {
     }
   }
 
-  const handleEdit = () => {}
+  const handleEdit = () => {
+    if (!albumId || !photoId) return
+    navigate(`/host/albums/${albumId}/photos/${photoId}/edit`, {
+      state: { photoUrl: photoSrc },
+    })
+  }
 
   const photoSrc = photo?.url ?? photo?.thumbnailUrl ?? FALLBACK_PHOTO
   const isFavorite = photo?.isFavorite ?? false
