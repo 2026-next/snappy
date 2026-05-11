@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
 type Tab = 'filter' | 'color' | 'crop' | 'auto' | 'element' | 'portrait'
@@ -69,6 +69,19 @@ const FILTER_PRESETS = [
   'Vintage Brown',
 ]
 
+const FILTER_CSS: Record<string, string> = {
+  'iPhone 4S':      'contrast(1.1) brightness(1.05) saturate(1.2)',
+  'iPhone 5':       'contrast(1.05) brightness(1.1) saturate(1.1)',
+  'iPhone 6':       'brightness(1.08) contrast(1.02) saturate(0.92)',
+  'iPhone SE':      'brightness(1.05) contrast(1.06) saturate(1.05) hue-rotate(5deg)',
+  'Old Phone Flash':'brightness(1.3) contrast(0.85) saturate(0.75) sepia(0.15)',
+  '35mm Film':      'sepia(0.25) contrast(1.1) brightness(0.95) saturate(0.85)',
+  'Warm Film':      'sepia(0.35) saturate(1.4) brightness(1.05) contrast(1.05)',
+  'Soft Grain':     'brightness(1.12) contrast(0.88) saturate(0.88)',
+  'Flash Film':     'brightness(1.28) contrast(1.18) saturate(0.85)',
+  'Vintage Brown':  'sepia(0.55) contrast(1.1) brightness(0.92) saturate(0.75)',
+}
+
 const AUTO_PRESETS = [
   'Default',
   '눈매 선명',
@@ -84,18 +97,26 @@ const AUTO_PRESETS = [
   '메이크업',
 ]
 
-const ELEMENT_TAGS = ['부케 풍성하게', '잔머리 제거', '핸드폰 제거']
+
+const ELEMENT_TAG_SETS = [
+  ['부케 풍성하게', '잔머리 제거', '핸드폰 제거'],
+  ['주변인 제거', '양복 색상 변경', '웃고 있는 얼굴'],
+  ['배경 흐리게', '조명 보정', '피부 보정'],
+]
+const ELEMENT_EXTRA_TAGS = ['부케 색상 변경', '배경 흐리게', '조명 보정', '피부 보정']
 
 function PresetThumbnails({
   presets,
   photoUrl,
   selected,
   onSelect,
+  filterMap,
 }: {
   presets: string[]
   photoUrl: string
   selected: string | null
   onSelect: (name: string) => void
+  filterMap?: Record<string, string>
 }) {
   return (
     <div className="flex gap-[4px] overflow-x-auto px-[20px] py-[10px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -111,6 +132,7 @@ function PresetThumbnails({
               src={photoUrl}
               alt=""
               className="absolute inset-0 size-full max-w-none object-cover rounded-[4px]"
+              style={filterMap?.[name] ? { filter: filterMap[name] } : undefined}
               aria-hidden="true"
             />
             {selected === name && (
@@ -133,26 +155,47 @@ function PresetThumbnails({
 
 const RULER_PX_PER_UNIT = 8
 
+function getWarmthFilter(value: number): string | undefined {
+  if (value === 0) return undefined
+  const t = Math.abs(value) / 20
+  if (value > 0) {
+    // 따뜻함: 세피아(주황·갈색 톤) + 채도 살짝 올림
+    const sepia = (t * 0.45).toFixed(3)
+    const saturate = (1 + t * 0.2).toFixed(3)
+    return `sepia(${sepia}) saturate(${saturate})`
+  } else {
+    // 차가움: 색조를 청록 방향으로 + 채도·밝기 살짝 내림
+    const hue = (t * 20).toFixed(1)
+    const saturate = (1 - t * 0.12).toFixed(3)
+    const brightness = (1 - t * 0.05).toFixed(3)
+    return `hue-rotate(${hue}deg) saturate(${saturate}) brightness(${brightness})`
+  }
+}
+
 function RulerSlider({
-  label,
   value,
+  label,
   onChange,
   onCommit,
-  min = -50,
-  max = 50,
+  min = -20,
+  max = 20,
+  showValue = false,
 }: {
-  label: string
   value: number
+  label?: string
   onChange: (v: number) => void
   onCommit?: (before: number, after: number) => void
   min?: number
   max?: number
+  showValue?: boolean
 }) {
   const dragRef = useRef<{ x: number; startValue: number; currentValue: number } | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId)
     dragRef.current = { x: e.clientX, startValue: value, currentValue: value }
+    setIsDragging(true)
   }
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current) return
@@ -165,14 +208,26 @@ function RulerSlider({
     if (!dragRef.current) return
     onCommit?.(dragRef.current.startValue, dragRef.current.currentValue)
     dragRef.current = null
+    setIsDragging(false)
   }
 
   return (
     <div className="flex select-none flex-col items-center py-5">
-      <p className="mb-5 text-[14px] tracking-[-0.28px] text-black">{label}</p>
+      {showValue && (
+        <p className="mb-5 text-[14px] tracking-[-0.28px] text-black text-center">
+          {isDragging ? value : (label ?? value)}
+        </p>
+      )}
       <div
-        className="relative w-full overflow-hidden touch-none cursor-grab active:cursor-grabbing"
-        style={{ height: 16 }}
+        className="relative w-full touch-none cursor-grab active:cursor-grabbing"
+        style={{
+          height: 16,
+          overflow: 'hidden',
+          maskImage:
+            'linear-gradient(to right, transparent 0%, #000 18%, #000 82%, transparent 100%)',
+          WebkitMaskImage:
+            'linear-gradient(to right, transparent 0%, #000 18%, #000 82%, transparent 100%)',
+        }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -196,7 +251,7 @@ function RulerSlider({
                   bottom: 0,
                   width: 1,
                   height: h,
-                  backgroundColor: isZero ? '#222226' : '#d1d3d8',
+                  backgroundColor: isZero ? '#222226' : isMajor ? '#a2a5ad' : '#d1d3d8',
                 }}
               />
             )
@@ -206,6 +261,8 @@ function RulerSlider({
     </div>
   )
 }
+
+interface FaceFrame { id: number; left: number; top: number; width: number; height: number }
 
 export function PhotoEditView() {
   const navigate = useNavigate()
@@ -220,15 +277,163 @@ export function PhotoEditView() {
   const [selectedAuto, setSelectedAuto] = useState<string | null>(null)
   const [colorValue, setColorValue] = useState(0)
   const [cropAngle, setCropAngle] = useState(0)
+  const [cropScale, setCropScale] = useState(1)
+  const [perspV, setPerspV] = useState(0)
+  const [perspH, setPerspH] = useState(0)
   const [cropShape, setCropShape] = useState<'circle' | 'trap-v' | 'trap-h'>('circle')
   const [elementInput, setElementInput] = useState('')
   const [activeTags, setActiveTags] = useState<string[]>([])
+  const [tagSetIndex, setTagSetIndex] = useState(0)
+
+  const [faceFrames, setFaceFrames] = useState<FaceFrame[]>([
+    { id: 1, left: 102, top: 52, width: 75, height: 83 },
+  ])
+  const nextFrameIdRef = useRef(2)
+  const [selectedFrameId, setSelectedFrameId] = useState<number | null>(null)
+  const [portraitMode, setPortraitMode] = useState<'select' | 'adjust'>('select')
+  const [activeAdjustTool, setActiveAdjustTool] = useState('얼굴형 조정')
+  const [adjustValue, setAdjustValue] = useState(0)
+  const [editingFrameId, setEditingFrameId] = useState<number | null>(null)
+  const [frameAdjustments, setFrameAdjustments] = useState<Record<number, Record<string, number>>>({})
+  const [displayedTags, setDisplayedTags] = useState<string[]>(ELEMENT_TAG_SETS[0])
   const [colorHistory, setColorHistory] = useState<number[]>([])
   const [colorFuture, setColorFuture] = useState<number[]>([])
   const [cropHistory, setCropHistory] = useState<number[]>([])
   const [cropFuture, setCropFuture] = useState<number[]>([])
   const [isExitModalOpen, setIsExitModalOpen] = useState(false)
   const [isSaveOptionsOpen, setIsSaveOptionsOpen] = useState(false)
+  const [isInputFocused, setIsInputFocused] = useState(false)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
+
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const onResize = () => setKeyboardHeight(Math.max(0, window.innerHeight - vv.height))
+    vv.addEventListener('resize', onResize)
+    return () => vv.removeEventListener('resize', onResize)
+  }, [])
+
+  const isKeyboardOpen = isInputFocused && keyboardHeight > 50
+
+  // Pinch-to-zoom for crop tab
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>())
+  const pinchRef = useRef<{ dist: number; startScale: number } | null>(null)
+  const cropScaleRef = useRef(cropScale)
+  cropScaleRef.current = cropScale
+
+  const handlePhotoPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (activeTab !== 'crop') return
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pointersRef.current.size === 2) {
+      const pts = [...pointersRef.current.values()]
+      const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y)
+      pinchRef.current = { dist, startScale: cropScaleRef.current }
+    }
+  }
+
+  const handlePhotoPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (activeTab !== 'crop' || !pointersRef.current.has(e.pointerId)) return
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pointersRef.current.size >= 2 && pinchRef.current) {
+      const pts = [...pointersRef.current.values()]
+      const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y)
+      const next = Math.max(0.5, Math.min(4, pinchRef.current.startScale * (dist / pinchRef.current.dist)))
+      setCropScale(next)
+    }
+  }
+
+  const handlePhotoPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    pointersRef.current.delete(e.pointerId)
+    if (pointersRef.current.size < 2) pinchRef.current = null
+  }
+
+  // Portrait: face frame resize + move via drag
+  const photoContainerRef = useRef<HTMLDivElement>(null)
+  const frameDragRef = useRef<{
+    frameId: number
+    handle: 'top-right' | 'bottom-left' | 'move'
+    startX: number
+    startY: number
+    startFrame: FaceFrame
+    moved: boolean
+  } | null>(null)
+
+  const startFrameDrag = (
+    e: React.PointerEvent<HTMLDivElement>,
+    frameId: number,
+    handle: 'top-right' | 'bottom-left' | 'move',
+  ) => {
+    e.stopPropagation()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    const frame = faceFrames.find((f) => f.id === frameId)
+    if (!frame) return
+    frameDragRef.current = { frameId, handle, startX: e.clientX, startY: e.clientY, startFrame: { ...frame }, moved: false }
+  }
+
+  const handleFramePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!frameDragRef.current || !photoContainerRef.current) return
+    const rawDx = e.clientX - frameDragRef.current.startX
+    const rawDy = e.clientY - frameDragRef.current.startY
+    if (Math.hypot(rawDx, rawDy) > 4) frameDragRef.current.moved = true
+    if (!frameDragRef.current.moved) return
+    const rect = photoContainerRef.current.getBoundingClientRect()
+    const sx = 402 / rect.width
+    const sy = 302 / rect.height
+    const dx = rawDx * sx
+    const dy = rawDy * sy
+    const { handle, startFrame, frameId } = frameDragRef.current
+    setFaceFrames((prev) =>
+      prev.map((f) => {
+        if (f.id !== frameId) return f
+        if (handle === 'move') {
+          return { ...f, left: startFrame.left + dx, top: startFrame.top + dy }
+        }
+        if (handle === 'top-right') {
+          return {
+            ...f,
+            top: startFrame.top + dy,
+            height: Math.max(30, startFrame.height - dy),
+            width: Math.max(30, startFrame.width + dx),
+          }
+        }
+        // bottom-left
+        return {
+          ...f,
+          left: startFrame.left + dx,
+          width: Math.max(30, startFrame.width - dx),
+          height: Math.max(30, startFrame.height + dy),
+        }
+      }),
+    )
+  }
+
+  const handleFramePointerUp = (frameId: number) => {
+    if (frameDragRef.current && !frameDragRef.current.moved) {
+      if (portraitMode === 'adjust') {
+        if (editingFrameId !== frameId) {
+          setEditingFrameId(frameId)
+          setAdjustValue(frameAdjustments[frameId]?.[activeAdjustTool] ?? 0)
+        }
+      } else {
+        setSelectedFrameId((prev) => (prev === frameId ? null : frameId))
+      }
+    }
+    frameDragRef.current = null
+  }
+
+  // Mouse wheel zoom for desktop
+  const photoAreaRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = photoAreaRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (activeTab !== 'crop') return
+      e.preventDefault()
+      setCropScale((prev) => Math.max(0.5, Math.min(4, prev - e.deltaY * 0.002)))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [activeTab])
 
   const canUndo =
     (activeTab === 'color' && colorHistory.length > 0) ||
@@ -287,10 +492,71 @@ export function PhotoEditView() {
     }
   }
 
-  const toggleTag = (tag: string) =>
-    setActiveTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    )
+  const handleAddTag = () => {
+    const baseLen = ELEMENT_TAG_SETS[tagSetIndex].length
+    const nextIndex = displayedTags.length - baseLen
+    if (nextIndex < ELEMENT_EXTRA_TAGS.length) {
+      setDisplayedTags((prev) => [...prev, ELEMENT_EXTRA_TAGS[nextIndex]])
+    }
+  }
+
+  const handleRefreshTags = () => {
+    const nextIndex = (tagSetIndex + 1) % ELEMENT_TAG_SETS.length
+    setTagSetIndex(nextIndex)
+    setDisplayedTags(ELEMENT_TAG_SETS[nextIndex])
+  }
+
+  const toggleTag = (tag: string) => {
+    setActiveTags((prev) => {
+      const next = prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+      setElementInput(next.join(', '))
+      return next
+    })
+  }
+
+  const ADJUST_TOOL_SCALES: Record<string, number[]> = {
+    '얼굴형 조정': [-4, -3, -2, -1, 0, 1, 2, 3, 4],
+    '눈크기 조정': [-2, -1, 0, 1, 2, 3, 4],
+    '코 조정': [-4, -3, -2, -1, 0, 1, 2, 3, 4],
+  }
+
+  // Portrait: detected face positions (402×302 coordinate space)
+  const DETECTED_FACES: Omit<FaceFrame, 'id'>[] = [
+    { left: 102, top: 52, width: 75, height: 83 },
+    { left: 225, top: 31, width: 75, height: 83 },
+  ]
+  const handleAddFaceFrame = () => {
+    const nextPos = DETECTED_FACES[faceFrames.length % DETECTED_FACES.length]
+    setFaceFrames((prev) => [...prev, { id: nextFrameIdRef.current++, ...nextPos }])
+  }
+
+  // Combine preset filter + warmth filter
+  const presetFilterStr = selectedFilter ? (FILTER_CSS[selectedFilter] ?? '') : ''
+  const warmthFilterStr = colorValue !== 0 ? (getWarmthFilter(colorValue) ?? '') : ''
+  const combinedFilter = [presetFilterStr, warmthFilterStr].filter(Boolean).join(' ') || undefined
+
+  const PERSP_D = 700 // perspective distance (px)
+  const perspVDeg = perspV * 0.5  // slider ±20 → ±10°
+  const perspHDeg = perspH * 0.5
+
+  // Minimum scale to fully cover the container after rotation + perspective
+  const autoAngleScale = (() => {
+    const w = 402, h = 302
+    // rotation coverage
+    const rad = Math.abs(cropAngle) * (Math.PI / 180)
+    const angleScale = rad > 0
+      ? Math.max((w * Math.cos(rad) + h * Math.sin(rad)) / w,
+                 (h * Math.cos(rad) + w * Math.sin(rad)) / h)
+      : 1
+    // perspective coverage — exact formula: s = 1 / (cosθ − dim/2·sinθ/d)
+    // (+1.5% margin for sub-pixel rendering)
+    const vRad = Math.abs(perspVDeg * Math.PI / 180)
+    const hRad = Math.abs(perspHDeg * Math.PI / 180)
+    const perspVScale = vRad > 0 ? 1.015 / (Math.cos(vRad) - (h / 2) * Math.sin(vRad) / PERSP_D) : 1
+    const perspHScale = hRad > 0 ? 1.015 / (Math.cos(hRad) - (w / 2) * Math.sin(hRad) / PERSP_D) : 1
+    return Math.max(1, angleScale, perspVScale, perspHScale)
+  })()
+  const effectiveCropScale = Math.max(cropScale, autoAngleScale)
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[402px] flex-col bg-white pb-[110px]">
@@ -394,8 +660,17 @@ export function PhotoEditView() {
       </header>
 
       {/* Photo area */}
-      <div className="flex h-[505px] w-full shrink-0 items-center justify-center bg-[#f4f6fa]">
+      <div
+        ref={photoAreaRef}
+        className="flex h-[505px] w-full shrink-0 items-center justify-center bg-[#f4f6fa]"
+        style={activeTab === 'crop' ? { touchAction: 'none' } : undefined}
+        onPointerDown={handlePhotoPointerDown}
+        onPointerMove={handlePhotoPointerMove}
+        onPointerUp={handlePhotoPointerUp}
+        onPointerCancel={handlePhotoPointerUp}
+      >
         <div
+          ref={photoContainerRef}
           className={`relative shrink-0 overflow-hidden ${
             activeTab === 'crop'
               ? 'w-[382px] border-[1.4px] border-[#222226]'
@@ -406,22 +681,129 @@ export function PhotoEditView() {
           <img
             src={photoUrl}
             alt=""
-            style={
-              activeTab === 'crop'
-                ? { transform: `rotate(${cropAngle}deg) scale(1.1)` }
-                : undefined
-            }
+            style={{
+              transform: `perspective(${PERSP_D}px) rotateX(${perspVDeg}deg) rotateY(${perspHDeg}deg) rotate(${cropAngle}deg) scale(${effectiveCropScale})`,
+              ...(combinedFilter ? { filter: combinedFilter } : {}),
+            }}
             className="h-full w-full object-cover"
             aria-hidden="true"
           />
-          {/* Portrait overlay */}
+          {/* Portrait overlay — SVG mask + face frame borders */}
           {activeTab === 'portrait' && (
-            <div className="pointer-events-none absolute inset-0">
-              <div className="absolute inset-0 bg-black/50" />
-              <div
-                className="absolute border-2 border-white"
-                style={{ top: '18%', left: '28%', width: '44%', height: '50%' }}
-              />
+            <div
+              className="absolute inset-0"
+              onPointerDown={() => setSelectedFrameId(null)}
+            >
+              {/* Dark overlay with transparent holes for each face */}
+              <svg
+                className="pointer-events-none absolute inset-0"
+                width="100%"
+                height="100%"
+                viewBox="0 0 402 302"
+                preserveAspectRatio="none"
+              >
+                <defs>
+                  <mask id="portraitMask">
+                    <rect width="402" height="302" fill="white" />
+                    {faceFrames.map((f) => (
+                      <rect key={f.id} x={f.left} y={f.top} width={f.width} height={f.height} rx="8" ry="8" fill="black" />
+                    ))}
+                  </mask>
+                </defs>
+                <rect width="402" height="302" fill="rgba(0,0,0,0.5)" mask="url(#portraitMask)" />
+              </svg>
+              {/* Face frames: move + resize + select + adjust */}
+              {faceFrames.map((f, idx) => {
+                const isSelected = selectedFrameId === f.id
+                const isEditing = portraitMode === 'adjust' && editingFrameId === f.id
+                const isOtherInAdjust = portraitMode === 'adjust' && !isEditing
+                const borderColor = isEditing ? 'border-[#ff6666]' : isSelected ? 'border-[#60a5fa]' : 'border-white'
+                const cursorClass = isOtherInAdjust ? 'cursor-pointer' : 'cursor-move'
+                return (
+                  <div key={f.id}>
+                    <div
+                      className={`absolute rounded-[8px] border-2 ${borderColor} ${cursorClass}`}
+                      style={{
+                        left: `${(f.left / 402) * 100}%`,
+                        top: `${(f.top / 302) * 100}%`,
+                        width: `${(f.width / 402) * 100}%`,
+                        height: `${(f.height / 302) * 100}%`,
+                        pointerEvents: 'auto',
+                        touchAction: 'none',
+                      }}
+                      onPointerDown={(e) => startFrameDrag(e, f.id, 'move')}
+                      onPointerMove={handleFramePointerMove}
+                      onPointerUp={() => handleFramePointerUp(f.id)}
+                      onPointerCancel={() => handleFramePointerUp(f.id)}
+                    >
+                      {/* Resize handles — hidden in adjust mode */}
+                      {portraitMode === 'select' && (
+                        <>
+                          <div
+                            className="absolute -right-[7px] -top-[7px] size-[14px] cursor-nwse-resize rounded-full bg-white"
+                            style={{ pointerEvents: 'auto', touchAction: 'none' }}
+                            onPointerDown={(e) => startFrameDrag(e, f.id, 'top-right')}
+                            onPointerMove={handleFramePointerMove}
+                            onPointerUp={() => handleFramePointerUp(f.id)}
+                            onPointerCancel={() => handleFramePointerUp(f.id)}
+                          />
+                          <div
+                            className="absolute -bottom-[7px] -left-[7px] size-[14px] cursor-nwse-resize rounded-full bg-white"
+                            style={{ pointerEvents: 'auto', touchAction: 'none' }}
+                            onPointerDown={(e) => startFrameDrag(e, f.id, 'bottom-left')}
+                            onPointerMove={handleFramePointerMove}
+                            onPointerUp={() => handleFramePointerUp(f.id)}
+                            onPointerCancel={() => handleFramePointerUp(f.id)}
+                          />
+                        </>
+                      )}
+                    </div>
+                    {/* Face N label — appears below editing frame in adjust mode */}
+                    {isEditing && (
+                      <div
+                        className="absolute flex items-center justify-center rounded-[10px] bg-[#ff6666] px-[4px] py-[2px]"
+                        style={{
+                          left: `${((f.left + f.width / 2) / 402) * 100}%`,
+                          top: `${((f.top + f.height + 4) / 302) * 100}%`,
+                          transform: 'translateX(-50%)',
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        <span className="text-[12px] leading-normal tracking-[-0.24px] text-white whitespace-nowrap">
+                          Face {idx + 1}
+                        </span>
+                      </div>
+                    )}
+                    {/* Delete button — appears below selected frame */}
+                    {isSelected && portraitMode === 'select' && (
+                      <button
+                        type="button"
+                        aria-label="프레임 삭제"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setFaceFrames((prev) => prev.filter((fr) => fr.id !== f.id))
+                          setSelectedFrameId(null)
+                        }}
+                        className="absolute flex cursor-pointer items-center justify-center rounded-[100px] bg-white px-[4px] py-[2px]"
+                        style={{
+                          left: `${((f.left + f.width / 2) / 402) * 100}%`,
+                          top: `${((f.top + f.height + 4) / 302) * 100}%`,
+                          transform: 'translateX(-50%)',
+                          pointerEvents: 'auto',
+                        }}
+                      >
+                        <div className="relative size-[16px] overflow-hidden">
+                          <div className="absolute" style={{ top: '11.46%', right: '13.72%', bottom: '11.46%', left: '13.73%' }}>
+                            <div className="absolute" style={{ top: '-4.64%', right: '-4.92%', bottom: '-4.63%', left: '-4.92%' }}>
+                              <img src="/icons/trash-mage.svg" alt="" className="block size-full max-w-none" aria-hidden="true" />
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -433,16 +815,18 @@ export function PhotoEditView() {
           presets={FILTER_PRESETS}
           photoUrl={photoUrl}
           selected={selectedFilter}
-          onSelect={setSelectedFilter}
+          onSelect={(name) => setSelectedFilter((prev) => (prev === name ? null : name))}
+          filterMap={FILTER_CSS}
         />
       )}
 
       {activeTab === 'color' && (
         <RulerSlider
-          label="따뜻함"
           value={colorValue}
+          label="따뜻함"
           onChange={setColorValue}
           onCommit={handleColorCommit}
+          showValue
         />
       )}
 
@@ -502,14 +886,29 @@ export function PhotoEditView() {
               )
             })}
           </div>
-          <RulerSlider
-            label="기울기"
-            value={cropAngle}
-            onChange={setCropAngle}
-            onCommit={handleCropCommit}
-            min={-45}
-            max={45}
-          />
+          {cropShape === 'circle' && (
+            <RulerSlider
+              value={cropAngle}
+              onChange={setCropAngle}
+              onCommit={handleCropCommit}
+            />
+          )}
+          {cropShape === 'trap-v' && (
+            <RulerSlider
+              value={perspV}
+              label="수직 보정"
+              onChange={setPerspV}
+              showValue
+            />
+          )}
+          {cropShape === 'trap-h' && (
+            <RulerSlider
+              value={perspH}
+              label="수평 보정"
+              onChange={setPerspH}
+              showValue
+            />
+          )}
         </div>
       )}
 
@@ -523,86 +922,197 @@ export function PhotoEditView() {
       )}
 
       {activeTab === 'element' && (
-        <div className="flex flex-col gap-3 px-[20px] py-[10px]">
-          <div className="flex items-start gap-2">
-            <div className="flex flex-1 flex-wrap gap-2">
-              {ELEMENT_TAGS.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => toggleTag(tag)}
-                  className={`rounded-full px-3.5 py-1.5 text-[13px] font-medium leading-none transition-colors ${
-                    activeTags.includes(tag)
-                      ? 'bg-[#222226] text-white'
-                      : 'bg-[#f4f6fa] text-[#222226]'
-                  }`}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
+        <div
+          className={
+            isKeyboardOpen
+              ? 'fixed left-1/2 z-20 flex w-full max-w-[402px] -translate-x-1/2 flex-col gap-[8px] bg-white px-[20px] py-[8px]'
+              : 'flex flex-col gap-[8px] px-[20px] py-[10px]'
+          }
+          style={isKeyboardOpen ? { bottom: keyboardHeight } : undefined}
+        >
+          {/* 태그 행 */}
+          <div className="flex items-center gap-[4px] overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {displayedTags.map((tag) => (
               <button
+                key={tag}
                 type="button"
-                aria-label="태그 추가"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f4f6fa]"
+                onClick={() => toggleTag(tag)}
+                className={`shrink-0 rounded-[16px] px-[16px] py-[10px] text-[12px] font-medium tracking-[-0.24px] transition-colors ${
+                  activeTags.includes(tag)
+                    ? 'bg-[#222226] text-white'
+                    : 'bg-[#f4f6fa] text-[#222226]'
+                }`}
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M8 3V13M3 8H13" stroke="#222226" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
+                {tag}
               </button>
-              <button
-                type="button"
-                aria-label="새로고침"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f4f6fa]"
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M2.5 7.5C2.5 4.739 4.739 2.5 7.5 2.5C9.084 2.5 10.5 3.207 11.48 4.33L13 5.5" stroke="#222226" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M13 2.5V5.5H10" stroke="#222226" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M13.5 8.5C13.5 11.261 11.261 13.5 8.5 13.5C6.916 13.5 5.5 12.793 4.52 11.67L3 10.5" stroke="#222226" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M3 13.5V10.5H6" stroke="#222226" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
+            ))}
+            <button
+              type="button"
+              aria-label="태그 추가"
+              onClick={handleAddTag}
+              disabled={displayedTags.length >= ELEMENT_TAG_SETS[tagSetIndex].length + ELEMENT_EXTRA_TAGS.length}
+              className="flex shrink-0 size-[34px] items-center justify-center rounded-[100px] bg-[#222226] disabled:opacity-40"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 4V16M4 10H16" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              aria-label="새로고침"
+              onClick={handleRefreshTags}
+              className="flex shrink-0 size-[34px] items-center justify-center rounded-[100px] bg-[#222226]"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M16 10C16 13.314 13.314 16 10 16C7.572 16 5.476 14.571 4.476 12.524" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                <path d="M4 10C4 6.686 6.686 4 10 4C12.428 4 14.524 5.429 15.524 7.476" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                <path d="M15.524 4.5V7.476H12.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M4.476 15.5V12.524H7.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
           </div>
-          <input
-            type="text"
-            value={elementInput}
-            onChange={(e) => setElementInput(e.target.value)}
-            placeholder="요소를 직접 입력해보세요"
-            className="w-full rounded-xl bg-[#f4f6fa] px-4 py-3 text-[14px] text-[#222226] placeholder:text-[#a2a5ad] focus:outline-none"
-          />
-          <button
-            type="button"
-            className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-[#222226] text-[16px] font-medium text-white"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M10 2L11.9 7.6L17.5 9.5L11.9 11.4L10 17L8.1 11.4L2.5 9.5L8.1 7.6L10 2Z" fill="white" />
-              <path d="M16 14L16.8 16.2L19 17L16.8 17.8L16 20L15.2 17.8L13 17L15.2 16.2L16 14Z" fill="white" />
-            </svg>
-            AI 편집하기
-          </button>
+          {/* 입력 + AI 버튼 행 */}
+          <div className="flex items-center gap-[4px]">
+            <input
+              type="text"
+              value={elementInput}
+              onChange={(e) => setElementInput(e.target.value)}
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={() => setIsInputFocused(false)}
+              placeholder="요소를 직접 입력해보세요"
+              className="h-[38px] flex-1 rounded-[6px] bg-[#f4f6fa] px-[10px] text-[14px] tracking-[-0.28px] text-[#222226] placeholder:text-[#a2a5ad] focus:outline-none"
+            />
+            <button
+              type="button"
+              className="flex h-[38px] items-center justify-center rounded-[10px] bg-[#222226] px-[8px]"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2.4L14.28 9.12L21 11.4L14.28 13.68L12 20.4L9.72 13.68L3 11.4L9.72 9.12L12 2.4Z" fill="white" />
+                <path d="M19.2 16.8L20.16 19.44L22.8 20.4L20.16 21.36L19.2 24L18.24 21.36L15.6 20.4L18.24 19.44L19.2 16.8Z" fill="white" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
-      {activeTab === 'portrait' && (
-        <div className="flex flex-col gap-3 px-[20px] py-[10px]">
-          <p className="text-center text-[13px] leading-relaxed text-[#616369]">
-            편집하고 싶은 얼굴 영역을 드래그하여 선택하세요
-          </p>
-          <div className="flex gap-3">
+      {activeTab === 'portrait' && portraitMode === 'select' && (
+        <div className="flex w-full flex-col items-center px-[20px]">
+          <div className="flex items-center justify-center py-[10px]">
+            <p className="text-center text-[14px] tracking-[-0.28px] text-[#222226]">
+              편집하고 싶은 얼굴 영역을 드래그하여 선택하세요
+            </p>
+          </div>
+          <div className="flex w-[362px] items-center justify-center gap-[24px]">
+            <div className="shrink-0 size-[52px] rounded-[100px]" />
+            <div className="shrink-0 size-[52px] rounded-[100px]" />
+            {/* + 버튼: 얼굴 인식 프레임 추가 */}
             <button
               type="button"
-              className="flex h-[52px] flex-1 items-center justify-center rounded-2xl bg-[#f4f6fa] text-[16px] font-medium text-[#222226]"
+              onClick={handleAddFaceFrame}
+              className="flex shrink-0 size-[52px] items-center justify-center rounded-[100px] bg-[#222226] border-[1.4px] border-[#a2a5ad] overflow-hidden"
+              aria-label="얼굴 영역 추가"
             >
-              추가하기
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 5V19M5 12H19" stroke="white" strokeWidth="2" strokeLinecap="round" />
+              </svg>
             </button>
+            <div className="shrink-0 size-[52px] rounded-[100px]" />
+            {/* > 버튼: 조정 모드로 진입 */}
             <button
               type="button"
-              className="flex h-[52px] flex-1 items-center justify-center rounded-2xl bg-[#222226] text-[16px] font-medium text-white"
+              onClick={() => {
+                const targetId = selectedFrameId ?? faceFrames[0]?.id ?? null
+                if (targetId == null) return
+                setEditingFrameId(targetId)
+                setSelectedFrameId(null)
+                setActiveAdjustTool('얼굴형 조정')
+                setAdjustValue(frameAdjustments[targetId]?.['얼굴형 조정'] ?? 0)
+                setPortraitMode('adjust')
+              }}
+              className="flex shrink-0 size-[52px] items-center justify-center rounded-[100px] bg-[#f4f6fa] overflow-hidden"
+              aria-label="조정 시작"
             >
-              다음으로
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M9 6L15 12L9 18" stroke="#222226" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'portrait' && portraitMode === 'adjust' && (
+        <div className="flex w-full flex-col gap-[6px] px-[20px] py-[8px]">
+          {/* 세그먼트 탭 */}
+          <div className="flex items-center justify-center">
+            <div className="flex items-center rounded-[12px] bg-[#f4f6fa] p-[4px]">
+              {(['얼굴형 조정', '눈크기 조정', '코 조정'] as const).map((tool) => (
+                <button
+                  key={tool}
+                  type="button"
+                  onClick={() => {
+                    setActiveAdjustTool(tool)
+                    setAdjustValue(editingFrameId != null ? (frameAdjustments[editingFrameId]?.[tool] ?? 0) : 0)
+                  }}
+                  className={`w-[84px] rounded-[8px] px-[6px] py-[6px] text-[14px] tracking-[-0.28px] transition-colors ${
+                    activeAdjustTool === tool
+                      ? 'bg-[#d7dbe2] text-[#222226]'
+                      : 'text-[#616369]'
+                  }`}
+                >
+                  {tool}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* < 뒤로 버튼 + 값 스케일 */}
+          <div className="flex items-center gap-[10px]">
+            {/* < 뒤로 버튼 */}
+            <button
+              type="button"
+              onClick={() => {
+                setPortraitMode('select')
+                setEditingFrameId(null)
+              }}
+              className="flex shrink-0 size-[52px] items-center justify-center rounded-[100px] bg-[#f4f6fa]"
+              aria-label="선택 모드로 돌아가기"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M15 6L9 12L15 18" stroke="#222226" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+
+            {/* 값 스케일: -5 ~ +5, 연결선 포함 */}
+            <div className="flex flex-1 items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex items-center">
+                {(ADJUST_TOOL_SCALES[activeAdjustTool] ?? [-4, -3, -2, -1, 0, 1, 2, 3, 4]).map((v, i) => (
+                  <div key={v} className="flex items-center">
+                    {i > 0 && (
+                      <div className="h-px w-[16px] bg-[#d1d3d8] shrink-0" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdjustValue(v)
+                        if (editingFrameId != null) {
+                          setFrameAdjustments((prev) => ({
+                            ...prev,
+                            [editingFrameId]: { ...prev[editingFrameId], [activeAdjustTool]: v },
+                          }))
+                        }
+                      }}
+                      className={`flex shrink-0 size-[28px] items-center justify-center rounded-full text-[14px] tracking-[-0.28px] transition-colors ${
+                        adjustValue === v
+                          ? 'bg-[#222226] border border-[#a2a5ad] text-white'
+                          : 'bg-[#f4f6fa] text-[#b7bdc6]'
+                      }`}
+                    >
+                      {v > 0 ? `+${v}` : v}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -653,8 +1163,8 @@ export function PhotoEditView() {
         </div>
       )}
 
-      {/* Save options (replaces toolbar after confirming save) */}
-      {isSaveOptionsOpen ? (
+      {/* Save options / bottom toolbar — hidden while keyboard is open */}
+      {!isKeyboardOpen && isSaveOptionsOpen ? (
         <div className="fixed bottom-[22px] left-1/2 -translate-x-1/2 flex w-[calc(100%-40px)] max-w-[362px] flex-col gap-[8px]">
           <button
             type="button"
@@ -671,7 +1181,7 @@ export function PhotoEditView() {
             기존 사진으로 저장
           </button>
         </div>
-      ) : (
+      ) : !isKeyboardOpen ? (
         /* Bottom toolbar — fixed pill */
         <nav
           aria-label="보정 탭"
@@ -717,7 +1227,7 @@ export function PhotoEditView() {
             })}
           </div>
         </nav>
-      )}
+      ) : null}
     </main>
   )
 }
