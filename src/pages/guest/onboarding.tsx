@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { joinByAccessCode } from '@/shared/api/guest'
+import { getMyPhotos } from '@/shared/api/photo'
+import { useAuthStore } from '@/shared/auth/use-auth-store'
 import { useGuestEventStore } from '@/shared/guest/use-guest-event-store'
 import { GuestOnboardingView } from '@/widgets/guest-onboarding/ui/guest-onboarding-view'
 
@@ -17,11 +19,13 @@ export function GuestOnboardingPage() {
   const { albumId = '' } = useParams<{ albumId: string }>()
   const navigate = useNavigate()
   const setEvent = useGuestEventStore((s) => s.setEvent)
+  const isGuestSession = useAuthStore((s) => s.isAuthenticated && s.sessionType === 'GUEST')
 
   const [isLoading, setIsLoading] = useState(true)
   const [eventName, setEventName] = useState<string | undefined>()
   const [eventDate, setEventDate] = useState<string | undefined>()
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
 
   useEffect(() => {
     if (!albumId) return
@@ -35,14 +39,31 @@ export function GuestOnboardingPage() {
       .finally(() => setIsLoading(false))
   }, [albumId, setEvent])
 
+  const handleUploadStart = async () => {
+    if (isGuestSession) {
+      try {
+        const photos = await getMyPhotos()
+        if (photos.length > 0) {
+          setIsHistoryModalOpen(true)
+          return
+        }
+      } catch {
+        // session expired or failed — fall through to login
+      }
+    }
+    navigate(`/guest/${albumId}/login?from=upload`)
+  }
+
   return (
     <GuestOnboardingView
       eventName={eventName}
       eventDate={eventDate}
       thumbnailUrl={thumbnailUrl}
       isLoading={isLoading}
-      onUploadStart={() => navigate(`/guest/${albumId}/login?from=upload`)}
+      onUploadStart={() => { void handleUploadStart() }}
       onViewMyPhotos={() => navigate(`/guest/${albumId}/login?from=my-photos`)}
+      isHistoryModalOpen={isHistoryModalOpen}
+      onHistoryModalConfirm={() => navigate(`/guest/${albumId}/my-photos`)}
     />
   )
 }
