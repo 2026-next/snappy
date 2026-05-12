@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { ApiError } from '@/shared/api/client'
@@ -5,6 +6,7 @@ import {
   GUEST_RELATION_CODE,
   GUEST_RELATION_LABELS,
   guestRegister,
+  joinByAccessCode,
 } from '@/shared/api/guest'
 import { hydrateSession } from '@/shared/auth/hydrate-session'
 import { useAuthStore } from '@/shared/auth/use-auth-store'
@@ -18,6 +20,12 @@ export function GuestSignupPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const event = useGuestEventStore((s) => s.event)
+  const setEvent = useGuestEventStore((s) => s.setEvent)
+
+  useEffect(() => {
+    if (!albumId || event) return
+    joinByAccessCode(albumId).then(setEvent).catch(() => {})
+  }, [albumId, event, setEvent])
 
   const handleComplete = async (
     name: string,
