@@ -20,6 +20,7 @@ export type RawPhoto = {
   url?: string | null
   thumbnailUrl?: string | null
   signedUrl?: string | null
+  originalPhotoUrl?: string | null
   width?: number | null
   height?: number | null
   isFavorite?: boolean | null
@@ -164,8 +165,8 @@ export function normalizePhoto(raw: RawPhoto): PhotoSummary {
   )
   return {
     id: String(raw.id),
-    url: raw.url ?? raw.signedUrl ?? null,
-    thumbnailUrl: raw.thumbnailUrl ?? raw.url ?? raw.signedUrl ?? null,
+    url: raw.url ?? raw.signedUrl ?? raw.originalPhotoUrl ?? null,
+    thumbnailUrl: raw.thumbnailUrl ?? raw.url ?? raw.signedUrl ?? raw.originalPhotoUrl ?? null,
     width: raw.width ?? null,
     height: raw.height ?? null,
     isFavorite: Boolean(raw.isFavorite ?? raw.favorite ?? false),
