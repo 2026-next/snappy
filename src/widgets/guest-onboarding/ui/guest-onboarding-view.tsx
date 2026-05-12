@@ -7,6 +7,8 @@ interface GuestOnboardingViewProps {
   isLoading?: boolean
   onUploadStart: () => void
   onViewMyPhotos: () => void
+  isHistoryModalOpen?: boolean
+  onHistoryModalConfirm?: () => void
 }
 
 export function GuestOnboardingView({
@@ -16,9 +18,11 @@ export function GuestOnboardingView({
   isLoading = false,
   onUploadStart,
   onViewMyPhotos,
+  isHistoryModalOpen = false,
+  onHistoryModalConfirm,
 }: GuestOnboardingViewProps) {
   return (
-    <div className="flex min-h-screen flex-col bg-white text-[#222226]">
+    <div className="relative flex min-h-screen flex-col bg-white text-[#222226]">
       <div className="mx-auto flex w-full max-w-[402px] grow flex-col px-5 pt-6 pb-8">
         <header className="flex h-10 items-center justify-center">
           <SnappyLogo />
@@ -98,6 +102,37 @@ export function GuestOnboardingView({
           </div>
         </footer>
       </div>
+
+      {isHistoryModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="history-modal-title"
+          className="fixed inset-0 z-30 mx-auto flex w-full max-w-[402px] items-center justify-center px-5"
+        >
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative flex w-full flex-col items-center gap-5 rounded-[18px] bg-white px-4 py-5">
+            <h2
+              id="history-modal-title"
+              className="text-[20px] font-bold leading-normal text-[#222226]"
+            >
+              사진 업로드 이력이 있어요
+            </h2>
+            <p className="text-center text-[14px] leading-[1.5] text-[#616369]">
+              내가 올린 사진 페이지로 이동할게요.{' '}
+              <br />
+              사진은 이동 후에도 추가로 업로드할 수 있어요.
+            </p>
+            <button
+              type="button"
+              onClick={onHistoryModalConfirm}
+              className="h-11 w-full rounded-[16px] bg-[#222226] text-[18px] font-medium text-white"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
