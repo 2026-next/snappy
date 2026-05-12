@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 interface GuestUploadMessageViewProps {
   files: File[]
+  initialMessage?: string
   onBack: () => void
   onComplete: (message: string) => void | Promise<void>
   isSubmitting?: boolean
@@ -11,13 +12,14 @@ interface GuestUploadMessageViewProps {
 
 export function GuestUploadMessageView({
   files,
+  initialMessage = '',
   onBack,
   onComplete,
   isSubmitting = false,
   errorMessage = null,
   progress = null,
 }: GuestUploadMessageViewProps) {
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(initialMessage)
   const previews = useMemo(
     () => files.map((f) => URL.createObjectURL(f)),
     [files],

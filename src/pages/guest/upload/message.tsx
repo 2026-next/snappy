@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import { ApiError } from '@/shared/api/client'
-import { MESSAGE_MAX_LENGTH, saveMessage } from '@/shared/api/message'
+import { getMyMessage, MESSAGE_MAX_LENGTH, saveMessage } from '@/shared/api/message'
 import { uploadFiles, type UploadProgress } from '@/shared/api/upload'
 import { GuestUploadMessageView } from '@/widgets/guest-upload-message/ui/guest-upload-message-view'
 
@@ -12,9 +12,16 @@ export function GuestUploadMessagePage() {
   const navigate = useNavigate()
   const files: File[] = location.state?.files ?? []
 
+  const [initialMessage, setInitialMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [progress, setProgress] = useState<UploadProgress | null>(null)
+
+  useEffect(() => {
+    getMyMessage()
+      .then((msg) => setInitialMessage(msg?.content ?? ''))
+      .catch(() => setInitialMessage(''))
+  }, [])
 
   const handleComplete = async (message: string) => {
     if (isSubmitting) return
@@ -75,9 +82,12 @@ export function GuestUploadMessagePage() {
     }
   }
 
+  if (initialMessage === null) return null
+
   return (
     <GuestUploadMessageView
       files={files}
+      initialMessage={initialMessage}
       onBack={() => navigate(`/guest/${albumId}/upload/select`, { state: { files } })}
       onComplete={handleComplete}
       isSubmitting={isSubmitting}
