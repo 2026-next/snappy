@@ -1,7 +1,8 @@
+import { useEffect } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { ApiError } from '@/shared/api/client'
-import { guestLogin } from '@/shared/api/guest'
+import { guestLogin, joinByAccessCode } from '@/shared/api/guest'
 import { hydrateSession } from '@/shared/auth/hydrate-session'
 import { useAuthStore } from '@/shared/auth/use-auth-store'
 import { useGuestEventStore } from '@/shared/guest/use-guest-event-store'
@@ -12,6 +13,12 @@ export function GuestLoginPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const event = useGuestEventStore((s) => s.event)
+  const setEvent = useGuestEventStore((s) => s.setEvent)
+
+  useEffect(() => {
+    if (!albumId || event) return
+    joinByAccessCode(albumId).then(setEvent).catch(() => {})
+  }, [albumId, event, setEvent])
 
   const handleSubmit = async (
     name: string,
