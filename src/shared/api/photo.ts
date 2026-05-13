@@ -39,6 +39,12 @@ export type RawPhoto = {
     relation?: number | string | null
   } | null
   message?: string | null
+  uploaderMessage?: {
+    id?: string | null
+    content?: string | null
+    createdAt?: string | null
+    updatedAt?: string | null
+  } | null
   retouched?: boolean | null
   isRetouched?: boolean | null
   isAi?: boolean | null
@@ -185,7 +191,7 @@ export function normalizePhotoDetail(raw: RawPhoto): PhotoDetail {
   return {
     ...base,
     originalUrl: raw.url ?? raw.signedUrl ?? null,
-    message: raw.message ?? null,
+    message: raw.uploaderMessage?.content ?? raw.message ?? null,
   }
 }
 

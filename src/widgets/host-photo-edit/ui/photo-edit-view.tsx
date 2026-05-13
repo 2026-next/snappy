@@ -356,6 +356,7 @@ export function PhotoEditView() {
   const [cropFuture, setCropFuture] = useState<number[]>([])
   const [isExitModalOpen, setIsExitModalOpen] = useState(false)
   const [isSaveOptionsOpen, setIsSaveOptionsOpen] = useState(false)
+  const [isSaveCompleteOpen, setIsSaveCompleteOpen] = useState(false)
   const [isInputFocused, setIsInputFocused] = useState(false)
   const [keyboardHeight, setKeyboardHeight] = useState(0)
 
@@ -614,12 +615,28 @@ export function PhotoEditView() {
   const handleBack = () => setIsExitModalOpen(true)
   const handleDone = () => setIsExitModalOpen(true)
   const handleCancelModal = () => setIsExitModalOpen(false)
+  const handleDiscardAndExit = () => {
+    setIsExitModalOpen(false)
+    navigate(-1)
+  }
   const handleConfirmSave = () => {
     setIsExitModalOpen(false)
     setIsSaveOptionsOpen(true)
   }
-  const handleSaveAsNew = () => navigate(`/host/albums/${albumId}/photos/${photoId}`)
-  const handleSaveAsExisting = () => navigate(`/host/albums/${albumId}/photos/${photoId}`)
+  const finishSave = () => {
+    setIsSaveOptionsOpen(false)
+    setIsSaveCompleteOpen(true)
+  }
+  const handleSaveAsNew = () => finishSave()
+  const handleSaveAsExisting = () => finishSave()
+  const handleSaveCompleteHome = () => {
+    setIsSaveCompleteOpen(false)
+    navigate('/')
+  }
+  const handleSaveCompleteBack = () => {
+    setIsSaveCompleteOpen(false)
+    navigate(`/host/albums/${albumId}/photos/${photoId}`)
+  }
 
   const handleUndo = () => {
     if (activeTab === 'color' && colorHistory.length > 0) {
@@ -1467,27 +1484,77 @@ export function PhotoEditView() {
               id="photo-edit-save-title"
               className="text-center text-[20px] font-bold leading-normal text-[#222226]"
             >
-              보정 설정을 저장할까요?
+              보정을 저장할까요?
             </h2>
             <p className="text-center text-[14px] leading-[1.5] text-[#616369]">
-              현재 선택한 보정 설정이 사진에 적용됩니다.
+              저장하면 현재 보정 설정이 사진에 적용돼요.
               <br />
-              저장 후에도 다시 수정할 수 있어요.
+              저장하지 않으면 변경사항이 사라져요.
+            </p>
+            <div className="flex w-full flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleConfirmSave}
+                className="flex h-11 w-full items-center justify-center rounded-[16px] bg-[#222226] text-[16px] font-medium text-white"
+              >
+                저장하기
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardAndExit}
+                className="flex h-11 w-full items-center justify-center rounded-[16px] bg-[#f4f6fa] text-[16px] font-medium text-[#e23a3a]"
+              >
+                저장하지 않고 나가기
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelModal}
+                className="flex h-11 w-full items-center justify-center text-[14px] font-medium text-[#616369]"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isSaveCompleteOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="photo-edit-save-complete-title"
+          className="fixed inset-0 z-30 mx-auto flex w-full max-w-[402px] items-center justify-center px-[20px]"
+        >
+          <button
+            type="button"
+            aria-label="닫기"
+            onClick={handleSaveCompleteBack}
+            className="absolute inset-0 bg-black/40"
+          />
+          <div className="relative flex w-full flex-col items-center gap-5 rounded-[18px] bg-white px-[16px] py-[20px]">
+            <h2
+              id="photo-edit-save-complete-title"
+              className="text-center text-[20px] font-bold leading-normal text-[#222226]"
+            >
+              보정이 저장되었어요
+            </h2>
+            <p className="text-center text-[14px] leading-[1.5] text-[#616369]">
+              계속해서 사진을 확인하거나 홈으로 이동해보세요.
             </p>
             <div className="flex w-full items-center gap-4">
               <button
                 type="button"
-                onClick={handleCancelModal}
-                className="flex h-11 flex-1 items-center justify-center rounded-[16px] bg-[#f4f6fa] text-[18px] font-medium text-[#222226]"
+                onClick={handleSaveCompleteHome}
+                className="flex h-11 flex-1 items-center justify-center rounded-[16px] bg-[#f4f6fa] text-[16px] font-medium text-[#222226]"
               >
-                취소
+                홈으로 가기
               </button>
               <button
                 type="button"
-                onClick={handleConfirmSave}
-                className="flex h-11 flex-1 items-center justify-center rounded-[16px] bg-[#222226] text-[18px] font-medium text-white"
+                onClick={handleSaveCompleteBack}
+                className="flex h-11 flex-1 items-center justify-center rounded-[16px] bg-[#222226] text-[16px] font-medium text-white"
               >
-                저장하기
+                사진 보기
               </button>
             </div>
           </div>
