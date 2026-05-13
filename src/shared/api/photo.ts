@@ -225,7 +225,7 @@ export async function getAlbum(query: AlbumQuery): Promise<AlbumPage> {
     offset: query.offset,
     order: query.order,
   })
-  const raw = await apiFetch<AlbumRawResponse>(`/photo${qs}`)
+  const raw = await apiFetch<AlbumRawResponse>(`/photo/views${qs}`)
   return normalizeAlbumResponse(raw)
 }
 
@@ -271,7 +271,7 @@ function deriveDateTime(raw: TimelineRaw): { date: string; time: string; id: str
 
 export async function getTimeline(eventId: string): Promise<TimelineBucket[]> {
   const raw = await apiFetch<TimelineRaw[]>(
-    `/photo/timeline${buildQuery({ eventId })}`,
+    `/photo/views/timeline${buildQuery({ eventId })}`,
   )
   return (raw ?? []).map((bucket) => {
     const photos = (bucket.photos ?? bucket.items ?? []).map(normalizePhoto)
@@ -299,7 +299,7 @@ export async function getUploaderGrouping(
   eventId: string,
 ): Promise<UploaderBucket[]> {
   const raw = await apiFetch<UploaderRaw[]>(
-    `/photo/uploader-grouping${buildQuery({ eventId })}`,
+    `/photo/views/uploader-grouping${buildQuery({ eventId })}`,
   )
   return (raw ?? []).map((bucket) => {
     const photos = (bucket.photos ?? bucket.items ?? []).map(normalizePhoto)
@@ -331,7 +331,7 @@ export async function getSimilarComposition(
   eventId: string,
 ): Promise<SimilarBucket[]> {
   const raw = await apiFetch<SimilarRaw[]>(
-    `/photo/similar-composition${buildQuery({ eventId })}`,
+    `/photo/views/similar-composition${buildQuery({ eventId })}`,
   )
   return (raw ?? []).map((bucket, index) => {
     const photos = (bucket.photos ?? bucket.items ?? []).map(normalizePhoto)
@@ -356,7 +356,7 @@ export async function searchUploader(
   eventId: string,
   name: string,
 ): Promise<UploaderSearchResult[]> {
-  const raw = await apiFetch<UploaderSearchRaw[]>(`/photo/uploader-search`, {
+  const raw = await apiFetch<UploaderSearchRaw[]>(`/photo/views/uploader-search`, {
     method: 'POST',
     body: JSON.stringify({ eventId, name }),
   })
