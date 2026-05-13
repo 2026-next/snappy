@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react'
+import { type ChangeEvent, type FormEvent } from 'react'
 
 const SEARCH_ICON = '/icons/search.svg'
 const FILTER_ICON = '/icons/filter.svg'
@@ -17,15 +17,12 @@ export function AlbumSearchBar({
   onOpenFilter,
   onOpenSort,
 }: AlbumSearchBarProps) {
-  const [draft, setDraft] = useState(value)
-
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setDraft(event.target.value)
+    onChange(event.target.value)
   }
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    onChange(draft)
   }
 
   return (
@@ -43,9 +40,9 @@ export function AlbumSearchBar({
         />
         <input
           type="text"
-          value={draft}
+          value={value}
           onChange={handleChange}
-          placeholder="업로더 이름, 태그, 멘트로 검색"
+          placeholder="업로더 이름, 멘트로 검색"
           aria-label="사진 검색"
           className="h-full w-full bg-transparent text-[14px] font-medium tracking-[-0.28px] text-[#222226] placeholder:text-[#b7bdc6] focus:outline-none"
         />

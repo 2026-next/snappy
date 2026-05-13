@@ -2,16 +2,19 @@ import { create } from 'zustand'
 
 import {
   type AlbumPage,
+  type PhotoSearchField,
+  type PhotoSearchResult,
   type PhotoSummary,
   type SimilarBucket,
   type SortOrder,
   type TimelineBucket,
   type UploaderBucket,
-  deletePhoto,
+  deletePhotoAsHost,
   getAlbum,
   getSimilarComposition,
   getTimeline,
   getUploaderGrouping,
+  searchPhotos,
   searchUploader,
   toggleFavorite,
 } from '@/shared/api/photo'
@@ -23,17 +26,32 @@ type AsyncSlice<T> = {
   loadedEventId: string | null
 }
 
+type SearchState = {
+  data: { items: PhotoSearchResult[]; total: number; query: string }
+  isLoading: boolean
+  error: string | null
+  loadedEventId: string | null
+}
+
 type AlbumPhotosState = {
   album: AsyncSlice<{ items: PhotoSummary[]; total: number }>
   timeline: AsyncSlice<TimelineBucket[]>
   uploader: AsyncSlice<UploaderBucket[]>
   similar: AsyncSlice<SimilarBucket[]>
+  search: SearchState
   uploaderSearchTerm: string
 
   fetchAlbum: (eventId: string, order?: SortOrder) => Promise<void>
   fetchTimeline: (eventId: string) => Promise<void>
   fetchUploaderGrouping: (eventId: string) => Promise<void>
   fetchSimilarComposition: (eventId: string) => Promise<void>
+
+  fetchSearch: (
+    eventId: string,
+    query: string,
+    options?: { fields?: PhotoSearchField[]; order?: SortOrder },
+  ) => Promise<void>
+  clearSearch: () => void
 
   setUploaderSearchTerm: (term: string) => void
   runUploaderSearch: (eventId: string, name: string) => Promise<void>
@@ -98,6 +116,12 @@ export const useAlbumPhotosStore = create<AlbumPhotosState>((set, get) => ({
   timeline: emptySlice<TimelineBucket[]>([]),
   uploader: emptySlice<UploaderBucket[]>([]),
   similar: emptySlice<SimilarBucket[]>([]),
+  search: {
+    data: { items: [], total: 0, query: '' },
+    isLoading: false,
+    error: null,
+    loadedEventId: null,
+  },
   uploaderSearchTerm: '',
 
   fetchAlbum: async (eventId, order = 'desc') => {
@@ -199,6 +223,56 @@ export const useAlbumPhotosStore = create<AlbumPhotosState>((set, get) => ({
       }))
     }
   },
+
+  fetchSearch: async (eventId, query, options) => {
+    const trimmed = query.trim()
+    if (!eventId || !trimmed) {
+      get().clearSearch()
+      return
+    }
+    set((state) => ({
+      search: {
+        ...state.search,
+        isLoading: true,
+        error: null,
+        data: { ...state.search.data, query: trimmed },
+      },
+    }))
+    try {
+      const page = await searchPhotos({
+        eventId,
+        q: trimmed,
+        fields: options?.fields,
+        order: options?.order,
+      })
+      set({
+        search: {
+          data: { items: page.items, total: page.total, query: trimmed },
+          isLoading: false,
+          error: null,
+          loadedEventId: eventId,
+        },
+      })
+    } catch (error) {
+      set((state) => ({
+        search: {
+          ...state.search,
+          isLoading: false,
+          error: errorMessage(error, '검색에 실패했어요'),
+        },
+      }))
+    }
+  },
+
+  clearSearch: () =>
+    set({
+      search: {
+        data: { items: [], total: 0, query: '' },
+        isLoading: false,
+        error: null,
+        loadedEventId: null,
+      },
+    }),
 
   setUploaderSearchTerm: (term) => set({ uploaderSearchTerm: term }),
 
@@ -303,7 +377,7 @@ export const useAlbumPhotosStore = create<AlbumPhotosState>((set, get) => ({
     }))
     const results = await Promise.allSettled(
       photoIds.map(async (id) => {
-        await deletePhoto(id)
+        await deletePhotoAsHost(id)
         return id
       }),
     )
@@ -350,6 +424,12 @@ export const useAlbumPhotosStore = create<AlbumPhotosState>((set, get) => ({
         timeline: emptySlice<TimelineBucket[]>([]),
         uploader: emptySlice<UploaderBucket[]>([]),
         similar: emptySlice<SimilarBucket[]>([]),
+        search: {
+          data: { items: [], total: 0, query: '' },
+          isLoading: false,
+          error: null,
+          loadedEventId: null,
+        },
         uploaderSearchTerm: '',
       })
     }

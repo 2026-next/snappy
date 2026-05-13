@@ -18,6 +18,7 @@ import { HostAlbumSharePage } from '@/pages/host/album-share'
 import { HostPhotoDetailPage } from '@/pages/host/photo-detail'
 import { HostPhotoEditPage } from '@/pages/host/photo-edit'
 import { HostPhotoSavePage } from '@/pages/host/photo-save'
+import { HostPhotoViewPage } from '@/pages/host/photo-view'
 import { NotFoundPage } from '@/pages/not-found'
 import { ProfilePage } from '@/pages/profile'
 
@@ -69,6 +70,10 @@ export const routeTree: RouteObject[] = [
           {
             path: 'albums/:albumId/photos/:photoId/save',
             element: <HostPhotoSavePage />,
+          },
+          {
+            path: 'albums/:albumId/photos/:photoId/view',
+            element: <HostPhotoViewPage />,
           },
           {
             path: 'albums/:albumId/photos/:photoId/edit',

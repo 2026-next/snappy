@@ -2,10 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import {
+  type AnalysisJob,
   type EnhancementJob,
   type PhotoVersion,
+  type SuggestedEnhancement,
   createEnhancement,
   listPhotoVersions,
+  pollAnalysisJob,
   pollEnhancementJob,
 } from '@/shared/api/photo-ai'
 
@@ -21,8 +24,6 @@ const TAB_LABELS: Record<Tab, string> = {
   element: '요소 편집',
   portrait: '인물 보정',
 }
-
-const TABS: Tab[] = ['filter', 'color', 'crop', 'auto', 'element', 'portrait']
 
 const TAB_ICON_SRC: Record<Tab, string> = {
   filter: '/icons/photo-edit-filter.svg',
@@ -105,13 +106,6 @@ const AUTO_PRESETS = [
   '메이크업',
 ]
 
-
-const ELEMENT_TAG_SETS = [
-  ['부케 풍성하게', '잔머리 제거', '핸드폰 제거'],
-  ['주변인 제거', '양복 색상 변경', '웃고 있는 얼굴'],
-  ['배경 흐리게', '조명 보정', '피부 보정'],
-]
-const ELEMENT_EXTRA_TAGS = ['부케 색상 변경', '배경 흐리게', '조명 보정', '피부 보정']
 
 function PresetThumbnails({
   presets,
@@ -300,12 +294,13 @@ export function PhotoEditView() {
   const [cropShape, setCropShape] = useState<'circle' | 'trap-v' | 'trap-h'>('circle')
   const [elementInput, setElementInput] = useState(suggestedPromptFromState)
   const [activeTags, setActiveTags] = useState<string[]>([])
-  const [tagSetIndex, setTagSetIndex] = useState(0)
   const [aiJob, setAiJob] = useState<EnhancementJob | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
   const [isAiSubmitting, setIsAiSubmitting] = useState(false)
   const [enhancedPhotoUrl, setEnhancedPhotoUrl] = useState<string | null>(null)
   const aiAbortRef = useRef<AbortController | null>(null)
+  const [analysis, setAnalysis] = useState<AnalysisJob | null>(null)
+  const analysisAbortRef = useRef<AbortController | null>(null)
   const [isVersionsOpen, setIsVersionsOpen] = useState(false)
   const [versions, setVersions] = useState<PhotoVersion[] | null>(null)
   const [versionsLoading, setVersionsLoading] = useState(false)
@@ -331,6 +326,20 @@ export function PhotoEditView() {
     setIsVersionsOpen(false)
   }, [photoId])
 
+  useEffect(() => {
+    if (!photoId) return
+    analysisAbortRef.current?.abort()
+    const controller = new AbortController()
+    analysisAbortRef.current = controller
+    setAnalysis(null)
+    pollAnalysisJob(photoId, { signal: controller.signal })
+      .then((job) => {
+        if (!controller.signal.aborted) setAnalysis(job)
+      })
+      .catch(() => {})
+    return () => controller.abort()
+  }, [photoId])
+
   const [faceFrames, setFaceFrames] = useState<FaceFrame[]>([
     { id: 1, left: 102, top: 52, width: 75, height: 83 },
   ])
@@ -341,7 +350,6 @@ export function PhotoEditView() {
   const [adjustValue, setAdjustValue] = useState(0)
   const [editingFrameId, setEditingFrameId] = useState<number | null>(null)
   const [frameAdjustments, setFrameAdjustments] = useState<Record<number, Record<string, number>>>({})
-  const [displayedTags, setDisplayedTags] = useState<string[]>(ELEMENT_TAG_SETS[0])
   const [colorHistory, setColorHistory] = useState<number[]>([])
   const [colorFuture, setColorFuture] = useState<number[]>([])
   const [cropHistory, setCropHistory] = useState<number[]>([])
@@ -506,9 +514,31 @@ export function PhotoEditView() {
     aiStatus === 'PENDING' ||
     aiStatus === 'PROCESSING'
 
-  const handleRunAiEnhancement = async () => {
+  const analysisResult = analysis?.result ?? null
+  const hasPerson = analysisResult?.hasPerson ?? false
+  const aiSuggestions: SuggestedEnhancement[] =
+    analysisResult?.suggestedEnhancements ?? []
+
+  const visibleTabs = useMemo<Tab[]>(
+    () =>
+      hasPerson
+        ? ['filter', 'color', 'crop', 'auto', 'element', 'portrait']
+        : ['filter', 'color', 'crop', 'element', 'portrait'],
+    [hasPerson],
+  )
+
+  useEffect(() => {
+    if (activeTab === 'auto' && !hasPerson && analysis?.status === 'SUCCEEDED') {
+      setActiveTab('filter')
+    }
+    if (activeTab === 'portrait' && !hasPerson && analysis?.status === 'SUCCEEDED') {
+      setActiveTab('filter')
+    }
+  }, [activeTab, hasPerson, analysis?.status])
+
+  const handleRunAiEnhancement = async (overridePrompt?: string) => {
     if (!photoId) return
-    const prompt = elementInput.trim()
+    const prompt = (overridePrompt ?? elementInput).trim()
     if (prompt.length === 0) {
       setAiError('보정 요청을 입력해 주세요')
       return
@@ -617,20 +647,6 @@ export function PhotoEditView() {
       setCropHistory((h) => [...h, cropAngle])
       setCropAngle(next)
     }
-  }
-
-  const handleAddTag = () => {
-    const baseLen = ELEMENT_TAG_SETS[tagSetIndex].length
-    const nextIndex = displayedTags.length - baseLen
-    if (nextIndex < ELEMENT_EXTRA_TAGS.length) {
-      setDisplayedTags((prev) => [...prev, ELEMENT_EXTRA_TAGS[nextIndex]])
-    }
-  }
-
-  const handleRefreshTags = () => {
-    const nextIndex = (tagSetIndex + 1) % ELEMENT_TAG_SETS.length
-    setTagSetIndex(nextIndex)
-    setDisplayedTags(ELEMENT_TAG_SETS[nextIndex])
   }
 
   const toggleTag = (tag: string) => {
@@ -812,9 +828,28 @@ export function PhotoEditView() {
               transform: `perspective(${PERSP_D}px) rotateX(${perspVDeg}deg) rotateY(${perspHDeg}deg) rotate(${cropAngle}deg) scale(${effectiveCropScale})`,
               ...(combinedFilter ? { filter: combinedFilter } : {}),
             }}
-            className="h-full w-full object-cover"
+            className={`h-full w-full object-cover transition-[filter] duration-200 ${
+              isAiProcessing ? 'blur-md scale-105' : ''
+            }`}
             aria-hidden="true"
           />
+          {isAiProcessing && (
+            <div
+              aria-live="polite"
+              className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/30"
+            >
+              <span
+                className="size-10 animate-spin rounded-full border-[3px] border-white border-t-transparent"
+                aria-hidden="true"
+              />
+              <p className="text-[14px] font-medium text-white">
+                AI 보정 진행 중...
+              </p>
+              <p className="text-[12px] text-white/80">
+                완료까지 잠시만 기다려주세요
+              </p>
+            </div>
+          )}
           {/* Portrait overlay — SVG mask + face frame borders */}
           {activeTab === 'portrait' && (
             <div
@@ -1040,12 +1075,36 @@ export function PhotoEditView() {
       )}
 
       {activeTab === 'auto' && (
-        <PresetThumbnails
-          presets={AUTO_PRESETS}
-          photoUrl={photoUrl}
-          selected={selectedAuto}
-          onSelect={setSelectedAuto}
-        />
+        <div className="flex flex-col gap-2">
+          <PresetThumbnails
+            presets={AUTO_PRESETS}
+            photoUrl={photoUrl}
+            selected={selectedAuto}
+            onSelect={setSelectedAuto}
+          />
+          <div className="px-[20px] pb-[10px]">
+            <button
+              type="button"
+              onClick={() => handleRunAiEnhancement(selectedAuto ?? '')}
+              disabled={isAiProcessing || !selectedAuto}
+              className="flex h-[44px] w-full items-center justify-center gap-2 rounded-2xl bg-[#222226] text-[14px] font-medium text-white disabled:opacity-40"
+            >
+              {isAiProcessing ? 'AI 보정 진행 중...' : 'AI 보정 적용하기'}
+            </button>
+            {aiStatusLabel && (
+              <p
+                className={`mt-2 text-center text-[12px] tracking-[-0.24px] ${
+                  aiError || aiStatus === 'FAILED'
+                    ? 'text-[#e23a3a]'
+                    : 'text-[#616369]'
+                }`}
+                role="status"
+              >
+                {aiStatusLabel}
+              </p>
+            )}
+          </div>
+        </div>
       )}
 
       {activeTab === 'element' && (
@@ -1057,47 +1116,44 @@ export function PhotoEditView() {
           }
           style={isKeyboardOpen ? { bottom: keyboardHeight } : undefined}
         >
-          {/* 태그 행 */}
-          <div className="flex items-center gap-[4px] overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {displayedTags.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => toggleTag(tag)}
-                className={`shrink-0 rounded-[16px] px-[16px] py-[10px] text-[12px] font-medium tracking-[-0.24px] transition-colors ${
-                  activeTags.includes(tag)
-                    ? 'bg-[#222226] text-white'
-                    : 'bg-[#f4f6fa] text-[#222226]'
-                }`}
-              >
-                {tag}
-              </button>
-            ))}
-            <button
-              type="button"
-              aria-label="태그 추가"
-              onClick={handleAddTag}
-              disabled={displayedTags.length >= ELEMENT_TAG_SETS[tagSetIndex].length + ELEMENT_EXTRA_TAGS.length}
-              className="flex shrink-0 size-[34px] items-center justify-center rounded-[100px] bg-[#222226] disabled:opacity-40"
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M10 4V16M4 10H16" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              aria-label="새로고침"
-              onClick={handleRefreshTags}
-              className="flex shrink-0 size-[34px] items-center justify-center rounded-[100px] bg-[#222226]"
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M16 10C16 13.314 13.314 16 10 16C7.572 16 5.476 14.571 4.476 12.524" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-                <path d="M4 10C4 6.686 6.686 4 10 4C12.428 4 14.524 5.429 15.524 7.476" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-                <path d="M15.524 4.5V7.476H12.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M4.476 15.5V12.524H7.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          </div>
+          {/* AI 추천 보정 */}
+          {aiSuggestions.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-[4px]">
+              {aiSuggestions.map((s) => {
+                const label = s.type || '추천 보정'
+                const isActive = activeTags.includes(s.suggestedPrompt)
+                return (
+                  <button
+                    key={`${s.type}-${s.suggestedPrompt}`}
+                    type="button"
+                    onClick={() => toggleTag(s.suggestedPrompt)}
+                    className={`flex items-center gap-1 rounded-[16px] px-[12px] py-[8px] text-[12px] font-medium tracking-[-0.24px] transition-colors ${
+                      isActive
+                        ? 'bg-[#222226] text-white'
+                        : 'bg-[#f4f6fa] text-[#222226]'
+                    }`}
+                  >
+                    {s.iconUrl && (
+                      <img
+                        src={s.iconUrl}
+                        alt=""
+                        className="h-4 w-4"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <span>{label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            analysis &&
+            analysis.status === 'SUCCEEDED' && (
+              <p className="text-[12px] tracking-[-0.24px] text-[#a2a5ad]">
+                AI 추천 보정이 없어요. 직접 입력해보세요.
+              </p>
+            )
+          )}
           {/* 입력 + AI 버튼 행 */}
           <div className="flex items-center gap-[4px]">
             <input
@@ -1111,7 +1167,7 @@ export function PhotoEditView() {
             />
             <button
               type="button"
-              onClick={handleRunAiEnhancement}
+              onClick={() => handleRunAiEnhancement()}
               disabled={isAiProcessing || elementInput.trim().length === 0}
               aria-label="AI 보정 실행"
               data-testid="ai-enhancement-trigger"
@@ -1275,6 +1331,48 @@ export function PhotoEditView() {
         </div>
       )}
 
+      {activeTab === 'portrait' && (
+        <div className="px-[20px] py-[10px]">
+          <button
+            type="button"
+            onClick={() => {
+              const parts: string[] = []
+              faceFrames.forEach((f, idx) => {
+                const adj = frameAdjustments[f.id]
+                if (!adj) return
+                const entries = Object.entries(adj).filter(([, v]) => v !== 0)
+                if (entries.length === 0) return
+                const summary = entries
+                  .map(([tool, v]) => `${tool} ${v > 0 ? '+' : ''}${v}`)
+                  .join(', ')
+                parts.push(`얼굴 ${idx + 1}: ${summary}`)
+              })
+              const prompt =
+                parts.length > 0
+                  ? `인물 보정 — ${parts.join(' / ')}`
+                  : '인물 보정 — 자연스러운 얼굴 보정'
+              void handleRunAiEnhancement(prompt)
+            }}
+            disabled={isAiProcessing}
+            className="flex h-[44px] w-full items-center justify-center gap-2 rounded-2xl bg-[#222226] text-[14px] font-medium text-white disabled:opacity-40"
+          >
+            {isAiProcessing ? 'AI 보정 진행 중...' : 'AI 보정 적용하기'}
+          </button>
+          {aiStatusLabel && (
+            <p
+              className={`mt-2 text-center text-[12px] tracking-[-0.24px] ${
+                aiError || aiStatus === 'FAILED'
+                  ? 'text-[#e23a3a]'
+                  : 'text-[#616369]'
+              }`}
+              role="status"
+            >
+              {aiStatusLabel}
+            </p>
+          )}
+        </div>
+      )}
+
       {isVersionsOpen && (
         <div
           role="dialog"
@@ -1421,7 +1519,7 @@ export function PhotoEditView() {
           className="fixed bottom-[22px] left-1/2 -translate-x-1/2 w-[calc(100%-40px)] max-w-[362px]"
         >
           <div className="flex items-center gap-[18px] rounded-[100px] bg-[#222226] p-[10px]">
-            {TABS.map((tab) => {
+            {visibleTabs.map((tab) => {
               const isActive = activeTab === tab
               return (
                 <button

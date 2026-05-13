@@ -5,6 +5,7 @@ import { useGroupStore } from '@/widgets/host-album-photos/store/group-store'
 const PLUS_ICON = '/icons/plus-circle-dark.svg'
 
 type GroupSelectModalProps = {
+  eventId: string
   selectedPhotoCount: number
   onClose: () => void
   onAdd: (groupId: string) => void
@@ -12,6 +13,7 @@ type GroupSelectModalProps = {
 }
 
 export function GroupSelectModal({
+  eventId,
   selectedPhotoCount,
   onClose,
   onAdd,
@@ -19,14 +21,16 @@ export function GroupSelectModal({
 }: GroupSelectModalProps) {
   const groups = useGroupStore((state) => state.groups)
   const isLoading = useGroupStore((state) => state.isLoadingGroups)
+  const loadedEventId = useGroupStore((state) => state.loadedEventId)
   const fetchGroups = useGroupStore((state) => state.fetchGroups)
   const [pickedId, setPickedId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (groups.length === 0) {
-      void fetchGroups()
+    if (!eventId) return
+    if (loadedEventId !== eventId && !isLoading) {
+      void fetchGroups(eventId)
     }
-  }, [groups.length, fetchGroups])
+  }, [eventId, loadedEventId, isLoading, fetchGroups])
 
   const handleConfirm = () => {
     if (!pickedId) return
