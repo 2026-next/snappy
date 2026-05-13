@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
+import { ApiError } from '@/shared/api/client'
 import { getMyEvents } from '@/shared/api/event'
 import {
   RELATION_LABELS,
   type PhotoDetail,
-  deletePhoto,
+  deletePhotoAsHost,
   getPhotoDetail,
   toggleFavorite,
 } from '@/shared/api/photo'
@@ -23,8 +24,6 @@ const DOWNLOAD_ICON = '/icons/download.svg'
 const HEART_OUTLINE = '/icons/heart-outline.svg'
 const HEART_FILLED = '/icons/heart-filled.svg'
 const AI_SPARKLE = '/icons/ai-sparkle.svg'
-
-const FALLBACK_PHOTO = '/images/album-cover-sample.png'
 
 function formatDate(iso: string | null): string {
   if (!iso) return ''
@@ -57,6 +56,7 @@ export function PhotoDetailView() {
   const [isMutating, setIsMutating] = useState(false)
   const [analysis, setAnalysis] = useState<AnalysisJob | null>(null)
   const [analysisError, setAnalysisError] = useState<string | null>(null)
+  const [imgLoaded, setImgLoaded] = useState(false)
 
   useEffect(() => {
     if (albumTitle || !albumId) return
@@ -73,6 +73,7 @@ export function PhotoDetailView() {
     let cancelled = false
     setIsLoading(true)
     setError(null)
+    setImgLoaded(false)
     getPhotoDetail(photoId)
       .then((detail) => {
         if (!cancelled) setPhoto(detail)
@@ -117,11 +118,20 @@ export function PhotoDetailView() {
     if (!photoId || isMutating) return
     setIsMutating(true)
     try {
-      await deletePhoto(photoId)
+      await deletePhotoAsHost(photoId)
       setIsDeleteModalOpen(false)
       navigate(-1)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '사진 삭제에 실패했어요')
+      const isAuthError =
+        err instanceof ApiError && (err.status === 401 || err.status === 403)
+      setError(
+        isAuthError
+          ? '이 사진을 삭제할 권한이 없어요. 호스트만 삭제할 수 있어요.'
+          : err instanceof Error
+            ? err.message
+            : '사진 삭제에 실패했어요',
+      )
+      setIsDeleteModalOpen(false)
     } finally {
       setIsMutating(false)
     }
@@ -170,7 +180,13 @@ export function PhotoDetailView() {
   const compositionScore = analysisResult?.composition.score ?? null
   const sharpnessScore = analysisResult?.sharpness.score ?? null
 
-  const photoSrc = photo?.url ?? photo?.thumbnailUrl ?? FALLBACK_PHOTO
+  const photoSrc = photo?.url ?? photo?.thumbnailUrl ?? null
+  const handleOpenViewer = () => {
+    if (!albumId || !photoId || !photoSrc) return
+    navigate(`/host/albums/${albumId}/photos/${photoId}/view`, {
+      state: { photoUrl: photoSrc, eventName: albumTitle },
+    })
+  }
   const isFavorite = photo?.isFavorite ?? false
   const message = photo?.message ?? ''
   const uploaderName = photo?.uploaderName ?? ''
@@ -209,14 +225,31 @@ export function PhotoDetailView() {
         </button>
       </header>
 
-      <div className="relative aspect-[402/302] w-full overflow-hidden bg-[#f4f6fa]">
-        <img
-          src={photoSrc}
-          alt=""
-          className="h-full w-full object-cover"
-          aria-hidden="true"
-        />
-      </div>
+      <button
+        type="button"
+        onClick={handleOpenViewer}
+        disabled={!photoSrc}
+        aria-label="사진 크게 보기"
+        className="relative aspect-[402/302] w-full overflow-hidden bg-[#e6e8ee] disabled:cursor-default"
+      >
+        {!imgLoaded && (
+          <div
+            aria-hidden="true"
+            className="shimmer absolute inset-0 h-full w-full"
+          />
+        )}
+        {photoSrc && (
+          <img
+            src={photoSrc}
+            alt=""
+            onLoad={() => setImgLoaded(true)}
+            className={`h-full w-full object-cover transition-opacity duration-200 ${
+              imgLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
+            aria-hidden="true"
+          />
+        )}
+      </button>
 
       <div className="flex items-center justify-between px-5 pt-3">
         <div className="flex items-center gap-2">
@@ -344,7 +377,7 @@ export function PhotoDetailView() {
           )}
           {analysisResult && (
             <div className="flex w-full flex-col gap-3">
-              <div className="flex gap-4 text-[12px] tracking-[-0.24px] text-[#616369]">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] tracking-[-0.24px] text-[#616369]">
                 <span>
                   구도 점수
                   <span className="ml-1 font-medium text-[#222226]">
@@ -367,14 +400,14 @@ export function PhotoDetailView() {
                 </span>
               </div>
               {suggestions.length > 0 && (
-                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex flex-wrap gap-2">
                   {suggestions.map((s) => (
                     <button
                       key={`${s.type}-${s.suggestedPrompt}`}
                       type="button"
                       onClick={() => handleSuggestionClick(s)}
                       disabled={!photo}
-                      className="flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-2 text-[12px] font-medium tracking-[-0.24px] text-[#222226] shadow-[0_1px_2px_rgba(34,34,38,0.05)] transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-50"
+                      className="flex items-center gap-1 rounded-full bg-white px-3 py-2 text-[12px] font-medium tracking-[-0.24px] text-[#222226] shadow-[0_1px_2px_rgba(34,34,38,0.05)] transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-50"
                     >
                       {s.iconUrl && (
                         <img

@@ -5,12 +5,18 @@ import { CheckerBackground } from './checker-background'
 const PLUS_CIRCLE = '/icons/plus-circle.svg'
 const PREVIEW_COUNT = 3
 
+export type RowBucketThumbnail = {
+  id: string
+  src: string | null
+}
+
 export type RowBucket = {
   id: string
   headerTitle: ReactNode
   totalCount: number
   photoCount: number
   ariaLabel: string
+  thumbnails?: RowBucketThumbnail[]
 }
 
 type TimelineListProps = {
@@ -26,6 +32,7 @@ export function TimelineList({ buckets, onOpenBucket }: TimelineListProps) {
         const previewCount = showPlus
           ? PREVIEW_COUNT
           : Math.min(bucket.photoCount, PREVIEW_COUNT + 1)
+        const thumbnails = bucket.thumbnails ?? []
         return (
           <li key={bucket.id} className="flex flex-col gap-2">
             <div className="flex items-end justify-between text-[12px]">
@@ -37,14 +44,26 @@ export function TimelineList({ buckets, onOpenBucket }: TimelineListProps) {
               </p>
             </div>
             <div className="flex items-center gap-1">
-              {Array.from({ length: previewCount }).map((_, i) => (
-                <div
-                  key={`${bucket.id}-preview-${i}`}
-                  className="relative aspect-square min-w-0 flex-1 overflow-hidden rounded-[4px] border border-[#d7dbe2] bg-[#f4f6fa]"
-                >
-                  <CheckerBackground />
-                </div>
-              ))}
+              {Array.from({ length: previewCount }).map((_, i) => {
+                const thumb = thumbnails[i]
+                return (
+                  <div
+                    key={`${bucket.id}-preview-${i}`}
+                    className="relative aspect-square min-w-0 flex-1 overflow-hidden rounded-[4px] border border-[#d7dbe2] bg-[#f4f6fa]"
+                  >
+                    {thumb?.src ? (
+                      <img
+                        src={thumb.src}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <CheckerBackground />
+                    )}
+                  </div>
+                )
+              })}
               {showPlus && (
                 <button
                   type="button"
@@ -52,10 +71,19 @@ export function TimelineList({ buckets, onOpenBucket }: TimelineListProps) {
                   aria-label={bucket.ariaLabel}
                   className="relative flex aspect-square min-w-0 flex-1 items-center justify-center overflow-hidden rounded-[4px] border border-[#d7dbe2] bg-[#f4f6fa]"
                 >
-                  <CheckerBackground />
+                  {thumbnails[PREVIEW_COUNT]?.src ? (
+                    <img
+                      src={thumbnails[PREVIEW_COUNT].src as string}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <CheckerBackground />
+                  )}
                   <span
                     aria-hidden="true"
-                    className="absolute inset-0 bg-[rgba(0,0,0,0.2)]"
+                    className="absolute inset-0 bg-[rgba(0,0,0,0.35)]"
                   />
                   <img
                     src={PLUS_CIRCLE}

@@ -24,16 +24,6 @@ function safeShareUrl(raw: string): string | null {
   }
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error(`Failed to load image: ${src}`))
-    img.src = src
-  })
-}
-
 function sanitizeFilename(input: string): string {
   const cleaned = input.replace(/[\\/:*?"<>|]+/g, '').trim()
   return cleaned.length > 0 ? cleaned : 'snappy-album'
@@ -111,46 +101,12 @@ export function AlbumShareView({
     }
     setIsSavingQr(true)
     try {
-      const canvas = document.createElement('canvas')
-      canvas.width = 600
-      canvas.height = 800
-      const ctx = canvas.getContext('2d')
-      if (!ctx) {
-        showToast('QR 저장에 실패했어요')
-        return
-      }
-
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-      const qrDataUrlForSave = await QRCode.toDataURL(safeUrl, QR_RENDER_OPTIONS)
-      const [cover, qr] = await Promise.all([
-        loadImage(ALBUM_COVER),
-        loadImage(qrDataUrlForSave),
-      ])
-
-      const coverSize = 200
-      const coverX = (canvas.width - coverSize) / 2
-      ctx.drawImage(cover, coverX, 60, coverSize, coverSize)
-
-      ctx.fillStyle = '#222226'
-      ctx.font = 'bold 28px sans-serif'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(albumName, canvas.width / 2, 320)
-
-      const qrSize = 320
-      const qrX = (canvas.width - qrSize) / 2
-      ctx.drawImage(qr, qrX, 380, qrSize, qrSize)
-
-      const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((b) => resolve(b), 'image/png')
-      })
-      if (!blob) {
-        showToast('QR 저장에 실패했어요')
-        return
-      }
-
+      const qrDataUrlForSave = await QRCode.toDataURL(
+        safeUrl,
+        QR_RENDER_OPTIONS,
+      )
+      const response = await fetch(qrDataUrlForSave)
+      const blob = await response.blob()
       const objectUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = objectUrl

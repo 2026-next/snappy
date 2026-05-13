@@ -6,7 +6,6 @@ import { type PhotoDetail, getPhotoDetail } from '@/shared/api/photo'
 const CHEVRON_RIGHT = '/icons/chevron-right.svg'
 const DOWNLOAD_ICON = '/icons/download.svg'
 
-const FALLBACK_PHOTO = '/images/album-cover-sample.png'
 const HEADER_TITLE = '사진 저장하기'
 const POLAROID_FONT = "'THEFACESHOP INKLIPQUID', cursive"
 
@@ -20,13 +19,21 @@ function formatTakenDate(iso: string | null): string {
   return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
 }
 
+class PolaroidCorsError extends Error {
+  constructor() {
+    super(
+      '폴라로이드 합성을 위해 이미지 저장소(GCS) CORS 설정이 필요해요. 백엔드에 문의해주세요.',
+    )
+    this.name = 'PolaroidCorsError'
+  }
+}
+
 async function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => resolve(img)
-    img.onerror = () =>
-      reject(new Error(`이미지를 불러오지 못했어요: ${src}`))
+    img.onerror = () => reject(new PolaroidCorsError())
     img.src = src
   })
 }
@@ -147,6 +154,7 @@ export function PhotoSaveView() {
   const [showTakenAt, setShowTakenAt] = useState(false)
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [imgLoaded, setImgLoaded] = useState(false)
   const cancelledRef = useRef(false)
 
   useEffect(() => {
@@ -154,6 +162,7 @@ export function PhotoSaveView() {
     cancelledRef.current = false
     setIsLoading(true)
     setError(null)
+    setImgLoaded(false)
     getPhotoDetail(photoId)
       .then((detail) => {
         if (!cancelledRef.current) setPhoto(detail)
@@ -171,7 +180,7 @@ export function PhotoSaveView() {
     }
   }, [photoId])
 
-  const photoSrc = photo?.url ?? photo?.thumbnailUrl ?? FALLBACK_PHOTO
+  const photoSrc = photo?.url ?? photo?.thumbnailUrl ?? null
   const message = photo?.message ?? ''
   const uploaderName = photo?.uploaderName ?? ''
   const takenAtLabel = useMemo(
@@ -185,6 +194,10 @@ export function PhotoSaveView() {
     if (isSaving) return
     if (!photo || !photoSrc) {
       setError('저장할 사진을 불러오지 못했어요')
+      return
+    }
+    if (tab === 'polaroid' && !imgLoaded) {
+      setError('사진이 아직 로딩 중이에요. 잠시 후 다시 시도해주세요.')
       return
     }
     setIsSaving(true)
@@ -287,11 +300,6 @@ export function PhotoSaveView() {
           {error}
         </p>
       )}
-      {isLoading && (
-        <p className="px-5 pt-2 text-center text-[12px] text-[#a2a5ad]">
-          사진을 불러오는 중...
-        </p>
-      )}
 
       {tab === 'polaroid' ? (
         <div className="mt-6 flex flex-col items-center gap-6 px-5">
@@ -299,13 +307,24 @@ export function PhotoSaveView() {
             className="flex w-full flex-col items-center justify-center gap-[10px] bg-white p-[14px]"
             style={{ filter: 'drop-shadow(0px 4px 5px rgba(0,0,0,0.15))' }}
           >
-            <div className="aspect-[300/225] w-full overflow-hidden">
-              <img
-                src={photoSrc}
-                alt=""
-                className="h-full w-full object-cover"
-                aria-hidden="true"
-              />
+            <div className="relative aspect-[300/225] w-full overflow-hidden bg-[#e6e8ee]">
+              {!imgLoaded && (
+                <div
+                  aria-hidden="true"
+                  className="shimmer absolute inset-0 h-full w-full"
+                />
+              )}
+              {photoSrc && (
+                <img
+                  src={photoSrc}
+                  alt=""
+                  onLoad={() => setImgLoaded(true)}
+                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${
+                    imgLoaded ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  aria-hidden="true"
+                />
+              )}
             </div>
             <div className="flex w-full flex-col items-center justify-center gap-1 py-[4px]">
               {showMessage && message && (
@@ -357,13 +376,24 @@ export function PhotoSaveView() {
         </div>
       ) : (
         <div className="mt-6 flex flex-col items-center px-5">
-          <div className="aspect-[362/272] w-full overflow-hidden">
-            <img
-              src={photoSrc}
-              alt=""
-              className="h-full w-full object-cover"
-              aria-hidden="true"
-            />
+          <div className="relative aspect-[362/272] w-full overflow-hidden bg-[#e6e8ee]">
+            {!imgLoaded && (
+              <div
+                aria-hidden="true"
+                className="shimmer absolute inset-0 h-full w-full"
+              />
+            )}
+            {photoSrc && (
+              <img
+                src={photoSrc}
+                alt=""
+                onLoad={() => setImgLoaded(true)}
+                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${
+                  imgLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
+                aria-hidden="true"
+              />
+            )}
           </div>
         </div>
       )}

@@ -7,6 +7,8 @@ import { type CategoryKey } from '@/widgets/host-album-photos/model/category'
 import {
   EMPTY_FILTER,
   type FilterValue,
+  isFilterEmpty,
+  photoMatchesFilter,
 } from '@/widgets/host-album-photos/model/filter'
 import {
   DEFAULT_SORT,
@@ -25,6 +27,11 @@ import { GroupDetail } from './group-detail'
 import { GroupSelectModal } from './group-select-modal'
 import { PhotoGrid, type PhotoItem } from './photo-grid'
 import { SelectionActionBar } from './selection-action-bar'
+import {
+  GridSkeleton,
+  RowListSkeleton,
+  StackGridSkeleton,
+} from './skeleton'
 import { SortSheet } from './sort-sheet'
 import { StackBucketList } from './stack-bucket-list'
 import { TimelineDetail } from './timeline-detail'
@@ -76,9 +83,9 @@ export function AlbumPhotosView() {
   const fetchSimilarComposition = useAlbumPhotosStore(
     (state) => state.fetchSimilarComposition,
   )
-  const runUploaderSearch = useAlbumPhotosStore(
-    (state) => state.runUploaderSearch,
-  )
+  const search$ = useAlbumPhotosStore((state) => state.search)
+  const fetchSearch = useAlbumPhotosStore((state) => state.fetchSearch)
+  const clearSearch = useAlbumPhotosStore((state) => state.clearSearch)
   const toggleFavorite = useAlbumPhotosStore((state) => state.toggleFavorite)
   const deletePhotos = useAlbumPhotosStore((state) => state.deletePhotos)
   const resetForEvent = useAlbumPhotosStore((state) => state.resetForEvent)
@@ -86,13 +93,20 @@ export function AlbumPhotosView() {
   const groups = useGroupStore((state) => state.groups)
   const groupTotalCount = useGroupStore((state) => state.groupTotalCount)
   const isLoadingGroups = useGroupStore((state) => state.isLoadingGroups)
+  const groupsLoadedEventId = useGroupStore((state) => state.loadedEventId)
+  const groupsError = useGroupStore((state) => state.groupsError)
   const groupPhotos = useGroupStore((state) => state.groupPhotos)
   const loadingGroupId = useGroupStore((state) => state.loadingGroupId)
   const fetchGroups = useGroupStore((state) => state.fetchGroups)
   const fetchGroupPhotos = useGroupStore((state) => state.fetchGroupPhotos)
+  const createGroupAction = useGroupStore((state) => state.createGroup)
+  const addPhotosToGroupAction = useGroupStore(
+    (state) => state.addPhotosToGroup,
+  )
   const removePhotoFromGroup = useGroupStore(
     (state) => state.removePhotoFromGroup,
   )
+  const resetGroupsForEvent = useGroupStore((state) => state.resetForEvent)
 
   useEffect(() => {
     if (albumTitle || !albumId) return
@@ -106,7 +120,8 @@ export function AlbumPhotosView() {
 
   useEffect(() => {
     resetForEvent(albumId)
-  }, [albumId, resetForEvent])
+    resetGroupsForEvent(albumId)
+  }, [albumId, resetForEvent, resetGroupsForEvent])
 
   useEffect(() => {
     if (!albumId) return
@@ -130,8 +145,13 @@ export function AlbumPhotosView() {
         void fetchSimilarComposition(albumId)
       }
     }
-    if (category === 'group' && groups.length === 0) {
-      void fetchGroups()
+    if (category === 'group') {
+      if (
+        groupsLoadedEventId !== albumId &&
+        !isLoadingGroups
+      ) {
+        void fetchGroups(albumId)
+      }
     }
   }, [
     albumId,
@@ -145,7 +165,8 @@ export function AlbumPhotosView() {
     uploader.isLoading,
     similar.loadedEventId,
     similar.isLoading,
-    groups.length,
+    groupsLoadedEventId,
+    isLoadingGroups,
     fetchAlbum,
     fetchTimeline,
     fetchUploaderGrouping,
@@ -160,24 +181,39 @@ export function AlbumPhotosView() {
   }, [category, activeBucketId, fetchGroupPhotos])
 
   useEffect(() => {
-    if (category !== 'uploader' || !albumId) return
+    if (!albumId) return
     const trimmed = search.trim()
+    if (!trimmed) {
+      clearSearch()
+      return
+    }
     const handle = window.setTimeout(() => {
-      void runUploaderSearch(albumId, trimmed)
+      void fetchSearch(albumId, trimmed)
     }, 300)
     return () => window.clearTimeout(handle)
-  }, [category, search, albumId, runUploaderSearch])
+  }, [search, albumId, fetchSearch, clearSearch])
 
+  const filteredAlbumPhotos = useMemo(
+    () =>
+      isFilterEmpty(filter)
+        ? album.data.items
+        : album.data.items.filter((p) => photoMatchesFilter(p, filter)),
+    [album.data.items, filter],
+  )
   const albumGridItems = useMemo(
-    () => album.data.items.map(toGridItem),
-    [album.data.items],
+    () => filteredAlbumPhotos.map(toGridItem),
+    [filteredAlbumPhotos],
   )
   const albumFavoriteItems = useMemo(
-    () => album.data.items.filter((p) => p.isFavorite).map(toGridItem),
-    [album.data.items],
+    () => filteredAlbumPhotos.filter((p) => p.isFavorite).map(toGridItem),
+    [filteredAlbumPhotos],
   )
   const flatTotalCount =
-    category === 'favorite' ? albumFavoriteItems.length : album.data.total
+    category === 'favorite'
+      ? albumFavoriteItems.length
+      : isFilterEmpty(filter)
+        ? album.data.total
+        : filteredAlbumPhotos.length
   const isFlatGridView = category === 'all' || category === 'favorite'
   const visibleFlatPhotos =
     category === 'favorite' ? albumFavoriteItems : albumGridItems
@@ -187,17 +223,53 @@ export function AlbumPhotosView() {
     album.loadedEventId === albumId &&
     visibleFlatPhotos.length === 0
 
+  const filteredTimeline = useMemo(() => {
+    if (isFilterEmpty(filter)) return timeline.data
+    return timeline.data
+      .map((bucket) => {
+        const photos = bucket.photos.filter((p) =>
+          photoMatchesFilter(p, filter),
+        )
+        return { ...bucket, photos, totalCount: photos.length }
+      })
+      .filter((bucket) => bucket.photos.length > 0)
+  }, [timeline.data, filter])
+
+  const filteredUploader = useMemo(() => {
+    if (isFilterEmpty(filter)) return uploader.data
+    return uploader.data
+      .map((bucket) => {
+        const photos = bucket.photos.filter((p) =>
+          photoMatchesFilter(p, filter),
+        )
+        return { ...bucket, photos, totalCount: photos.length }
+      })
+      .filter((bucket) => bucket.photos.length > 0)
+  }, [uploader.data, filter])
+
+  const filteredSimilar = useMemo(() => {
+    if (isFilterEmpty(filter)) return similar.data
+    return similar.data
+      .map((bucket) => {
+        const photos = bucket.photos.filter((p) =>
+          photoMatchesFilter(p, filter),
+        )
+        return { ...bucket, photos, totalCount: photos.length }
+      })
+      .filter((bucket) => bucket.photos.length > 0)
+  }, [similar.data, filter])
+
   const activeTimelineBucket =
     category === 'timeline'
-      ? (timeline.data.find((b) => b.id === activeBucketId) ?? null)
+      ? (filteredTimeline.find((b) => b.id === activeBucketId) ?? null)
       : null
   const activeUploaderBucket =
     category === 'uploader'
-      ? (uploader.data.find((b) => b.id === activeBucketId) ?? null)
+      ? (filteredUploader.find((b) => b.id === activeBucketId) ?? null)
       : null
   const activeSimilarBucket =
     category === 'similar'
-      ? (similar.data.find((b) => b.id === activeBucketId) ?? null)
+      ? (filteredSimilar.find((b) => b.id === activeBucketId) ?? null)
       : null
   const activeGroup =
     category === 'group'
@@ -214,6 +286,7 @@ export function AlbumPhotosView() {
   const handleSelectCategory = (key: CategoryKey) => {
     setCategory(key)
     setActiveBucketId(null)
+    setSearch('')
     exitSelectionMode()
   }
 
@@ -230,11 +303,12 @@ export function AlbumPhotosView() {
     navigate(-1)
   }
 
-  const handleMore = () => {}
 
   const handleApplyFilter = (value: FilterValue) => {
     setFilter(value)
     setOverlay('none')
+    setActiveBucketId(null)
+    exitSelectionMode()
   }
   const handleApplySort = (value: SortKey) => {
     setSort(value)
@@ -243,10 +317,15 @@ export function AlbumPhotosView() {
       void fetchAlbum(albumId, value === 'oldest' ? 'asc' : 'desc')
     }
   }
-  const handleCreateGroup = (name: string) => {
-    if (!name) return
+  const handleCreateGroup = async (name: string) => {
+    if (!name || !albumId) return
+    const initialIds = isSelectionMode ? Array.from(selectedIds) : []
+    const created = await createGroupAction(albumId, name, initialIds)
     setOverlay('none')
     exitSelectionMode()
+    if (created) {
+      setCategory('group')
+    }
   }
 
   const handleSendShareLink = () => {
@@ -260,6 +339,12 @@ export function AlbumPhotosView() {
   }
   const handleToggleFavorite = (id: string) => {
     void toggleFavorite(id)
+  }
+  const handleOpenPhoto = (photoId: string) => {
+    if (!albumId) return
+    navigate(`/host/albums/${albumId}/photos/${photoId}`, {
+      state: { eventName: albumTitle },
+    })
   }
 
   const handleToggleSelect = (photoId: string) => {
@@ -284,7 +369,11 @@ export function AlbumPhotosView() {
   const handleAddSelectedToGroup = () => {
     setOverlay('select-group')
   }
-  const handleAddToExistingGroup = () => {
+  const handleAddToExistingGroup = async (groupId: string) => {
+    const ids = Array.from(selectedIds)
+    if (ids.length > 0) {
+      await addPhotosToGroupAction(groupId, ids)
+    }
     setOverlay('none')
     exitSelectionMode()
   }
@@ -297,7 +386,7 @@ export function AlbumPhotosView() {
 
   const timelineRowBuckets: RowBucket[] = useMemo(
     () =>
-      timeline.data.map((bucket) => ({
+      filteredTimeline.map((bucket) => ({
         id: bucket.id,
         headerTitle: (
           <>
@@ -309,13 +398,17 @@ export function AlbumPhotosView() {
         totalCount: bucket.totalCount,
         photoCount: bucket.photos.length,
         ariaLabel: `${bucket.date} ${bucket.time} 사진 모두 보기`,
+        thumbnails: bucket.photos.slice(0, 4).map((p) => ({
+          id: p.id,
+          src: p.thumbnailUrl ?? p.url,
+        })),
       })),
-    [timeline.data],
+    [filteredTimeline],
   )
 
   const uploaderRowBuckets: RowBucket[] = useMemo(
     () =>
-      uploader.data.map((bucket) => ({
+      filteredUploader.map((bucket) => ({
         id: bucket.id,
         headerTitle: (
           <>
@@ -327,17 +420,22 @@ export function AlbumPhotosView() {
         totalCount: bucket.totalCount,
         photoCount: bucket.photos.length,
         ariaLabel: `${bucket.name} ${bucket.relation} 사진 모두 보기`,
+        thumbnails: bucket.photos.slice(0, 4).map((p) => ({
+          id: p.id,
+          src: p.thumbnailUrl ?? p.url,
+        })),
       })),
-    [uploader.data],
+    [filteredUploader],
   )
 
   const similarStackBuckets = useMemo(
     () =>
-      similar.data.map((bucket) => ({
+      filteredSimilar.map((bucket) => ({
         id: bucket.id,
         totalCount: bucket.totalCount,
+        coverSrc: bucket.photos[0]?.thumbnailUrl ?? bucket.photos[0]?.url ?? null,
       })),
-    [similar.data],
+    [filteredSimilar],
   )
 
   const groupStackBuckets = useMemo(
@@ -346,14 +444,27 @@ export function AlbumPhotosView() {
         id: group.id,
         totalCount: group.totalCount,
         label: group.name,
+        coverSrc: group.coverSrc,
       })),
     [groups],
   )
 
+  const isGroupListEmpty =
+    category === 'group' &&
+    !activeGroup &&
+    groupsLoadedEventId === albumId &&
+    groups.length === 0 &&
+    !isLoadingGroups &&
+    !groupsError
+
+  const searchActive = search.trim().length > 0
+
   const showCreateGroupCta =
+    !searchActive &&
     !isFlatEmpty &&
     !isSelectionMode &&
     !isInDetailView &&
+    !isGroupListEmpty &&
     (isFlatGridView || category === 'group')
 
   const isInGroupDetail = category === 'group' && activeGroup !== null
@@ -361,17 +472,46 @@ export function AlbumPhotosView() {
   const showSelectionBar =
     isSelectionMode && (isInGroupDetail || isInOtherDetail)
 
-  // referenced for future filter-application work
-  void filter
+  const searchQuery = search.trim()
+  const isSearching = searchQuery.length > 0
+  const searchResultItems: PhotoItem[] = useMemo(
+    () =>
+      isSearching ? search$.data.items.map(toGridItem) : [],
+    [isSearching, search$.data.items],
+  )
 
   const renderContent = () => {
-    if (isFlatGridView) {
-      if (album.isLoading && album.data.items.length === 0) {
+    if (isSearching) {
+      if (search$.isLoading && searchResultItems.length === 0) {
+        return <GridSkeleton count={9} columns={3} />
+      }
+      if (search$.error) {
         return (
-          <p className="py-8 text-center text-[14px] text-[#a2a5ad]">
-            사진을 불러오는 중...
+          <p className="py-8 text-center text-[14px] text-[#e23a3a]">
+            {search$.error}
           </p>
         )
+      }
+      if (search$.data.items.length === 0) {
+        return (
+          <p className="py-8 text-center text-[14px] text-[#a2a5ad]">
+            &quot;{searchQuery}&quot;에 대한 결과가 없어요
+          </p>
+        )
+      }
+      return (
+        <PhotoGrid
+          category="all"
+          photos={searchResultItems}
+          totalCount={search$.data.total}
+          onDelete={() => {}}
+          onToggleFavorite={handleToggleFavorite}
+        />
+      )
+    }
+    if (isFlatGridView) {
+      if (album.isLoading && album.data.items.length === 0) {
+        return <GridSkeleton count={12} columns={3} />
       }
       if (album.error) {
         return (
@@ -381,7 +521,16 @@ export function AlbumPhotosView() {
         )
       }
       if (isFlatEmpty) {
-        return <EmptyState onSendShareLink={handleSendShareLink} />
+        const variant =
+          category === 'favorite' && album.data.items.length > 0
+            ? 'no-favorites'
+            : 'no-photos'
+        return (
+          <EmptyState
+            variant={variant}
+            onSendShareLink={handleSendShareLink}
+          />
+        )
       }
       return (
         <PhotoGrid
@@ -396,11 +545,7 @@ export function AlbumPhotosView() {
 
     if (category === 'timeline') {
       if (timeline.isLoading && timeline.data.length === 0) {
-        return (
-          <p className="py-8 text-center text-[14px] text-[#a2a5ad]">
-            타임라인을 불러오는 중...
-          </p>
-        )
+        return <RowListSkeleton rows={3} />
       }
       if (timeline.error) {
         return (
@@ -431,6 +576,7 @@ export function AlbumPhotosView() {
             onToggleSelect={handleToggleSelect}
             onEnterSelection={handleEnterSelection}
             onExitSelection={exitSelectionMode}
+            onOpenPhoto={handleOpenPhoto}
           />
         )
       }
@@ -447,11 +593,7 @@ export function AlbumPhotosView() {
 
     if (category === 'uploader') {
       if (uploader.isLoading && uploader.data.length === 0) {
-        return (
-          <p className="py-8 text-center text-[14px] text-[#a2a5ad]">
-            업로더별 사진을 불러오는 중...
-          </p>
-        )
+        return <RowListSkeleton rows={3} />
       }
       if (uploader.error) {
         return (
@@ -482,6 +624,7 @@ export function AlbumPhotosView() {
             onToggleSelect={handleToggleSelect}
             onEnterSelection={handleEnterSelection}
             onExitSelection={exitSelectionMode}
+            onOpenPhoto={handleOpenPhoto}
           />
         )
       }
@@ -498,11 +641,7 @@ export function AlbumPhotosView() {
 
     if (category === 'similar') {
       if (similar.isLoading && similar.data.length === 0) {
-        return (
-          <p className="py-8 text-center text-[14px] text-[#a2a5ad]">
-            비슷한 구도를 분석하는 중...
-          </p>
-        )
+        return <StackGridSkeleton count={6} />
       }
       if (similar.error) {
         return (
@@ -522,6 +661,7 @@ export function AlbumPhotosView() {
             onToggleSelect={handleToggleSelect}
             onEnterSelection={handleEnterSelection}
             onExitSelection={exitSelectionMode}
+            onOpenPhoto={handleOpenPhoto}
           />
         )
       }
@@ -533,6 +673,7 @@ export function AlbumPhotosView() {
             exitSelectionMode()
           }}
           ariaLabelFor={(bucket) => `비슷한 구도 ${bucket.totalCount}장 보기`}
+          flat
         />
       )
     }
@@ -541,11 +682,7 @@ export function AlbumPhotosView() {
       if (activeGroup) {
         const photosForGroup = groupPhotos[activeGroup.id]
         if (loadingGroupId === activeGroup.id || !photosForGroup) {
-          return (
-            <p className="py-8 text-center text-[14px] text-[#a2a5ad]">
-              그룹 사진을 불러오는 중...
-            </p>
-          )
+          return <GridSkeleton count={9} columns={3} />
         }
         return (
           <GroupDetail
@@ -557,14 +694,37 @@ export function AlbumPhotosView() {
             onToggleSelect={handleToggleSelect}
             onEnterSelection={handleEnterSelection}
             onExitSelection={exitSelectionMode}
+            onOpenPhoto={handleOpenPhoto}
           />
         )
       }
       if (isLoadingGroups && groups.length === 0) {
+        return <StackGridSkeleton count={4} />
+      }
+      if (groupsError) {
         return (
-          <p className="py-8 text-center text-[14px] text-[#a2a5ad]">
-            그룹을 불러오는 중...
+          <p className="py-8 text-center text-[14px] text-[#e23a3a]">
+            {groupsError}
           </p>
+        )
+      }
+      if (groupsLoadedEventId === albumId && groups.length === 0) {
+        return (
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
+            <p className="text-[14px] font-medium text-[#222226]">
+              아직 만들어진 그룹이 없어요
+            </p>
+            <p className="text-[12px] text-[#a2a5ad]">
+              아래 ‘그룹 생성’ 버튼을 눌러 첫 그룹을 만들어보세요.
+            </p>
+            <button
+              type="button"
+              onClick={() => setOverlay('create-group')}
+              className="mt-1 flex h-11 items-center justify-center rounded-2xl bg-[#222226] px-5 text-[14px] font-medium text-white"
+            >
+              새 그룹 만들기
+            </button>
+          </div>
         )
       }
       return (
@@ -579,6 +739,7 @@ export function AlbumPhotosView() {
               exitSelectionMode()
             }}
             ariaLabelFor={(bucket) => `${bucket.label ?? '그룹'} 사진 보기`}
+            flat
           />
         </div>
       )
@@ -592,7 +753,7 @@ export function AlbumPhotosView() {
       <AlbumPhotosHeader
         title={albumTitle}
         onBack={handleBack}
-        onMore={handleMore}
+        onShare={handleSendShareLink}
       />
 
       <div className="mt-[10px] flex flex-col gap-3">
@@ -658,6 +819,7 @@ export function AlbumPhotosView() {
       )}
       {overlay === 'select-group' && (
         <GroupSelectModal
+          eventId={albumId}
           selectedPhotoCount={selectedIds.size}
           onClose={() => setOverlay('none')}
           onAdd={handleAddToExistingGroup}

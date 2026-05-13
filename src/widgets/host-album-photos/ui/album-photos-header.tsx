@@ -1,16 +1,16 @@
 const CHEVRON_RIGHT = '/icons/chevron-right.svg'
-const MORE_ICON = '/icons/more.svg'
+const SHARE_ICON = '/icons/link.svg'
 
 type AlbumPhotosHeaderProps = {
   title: string
   onBack: () => void
-  onMore: () => void
+  onShare: () => void
 }
 
 export function AlbumPhotosHeader({
   title,
   onBack,
-  onMore,
+  onShare,
 }: AlbumPhotosHeaderProps) {
   return (
     <header className="relative flex h-[60px] items-center justify-center px-5">
@@ -34,12 +34,12 @@ export function AlbumPhotosHeader({
 
       <button
         type="button"
-        onClick={onMore}
-        aria-label="더 보기"
+        onClick={onShare}
+        aria-label="앨범 공유"
         className="absolute right-5 flex h-10 w-10 items-center justify-center"
       >
         <img
-          src={MORE_ICON}
+          src={SHARE_ICON}
           alt=""
           className="h-6 w-6"
           aria-hidden="true"

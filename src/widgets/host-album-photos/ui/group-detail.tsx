@@ -14,6 +14,7 @@ type GroupDetailProps = {
   onToggleSelect: (id: string) => void
   onEnterSelection: () => void
   onExitSelection: () => void
+  onOpenPhoto?: (id: string) => void
 }
 
 export function GroupDetail({
@@ -25,6 +26,7 @@ export function GroupDetail({
   onToggleSelect,
   onEnterSelection,
   onExitSelection,
+  onOpenPhoto,
 }: GroupDetailProps) {
   return (
     <section className="flex flex-col gap-2">
@@ -51,7 +53,24 @@ export function GroupDetail({
           return (
             <li key={photo.id}>
               <div className="relative aspect-square w-full overflow-hidden rounded-[4px] border border-[#d7dbe2] bg-[#f4f6fa]">
-                {photo.src ? (
+                {!isSelectionMode && onOpenPhoto ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenPhoto(photo.id)}
+                    aria-label="사진 자세히 보기"
+                    className="absolute inset-0 h-full w-full"
+                  >
+                    {photo.src ? (
+                      <img
+                        src={photo.src}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                    ) : (
+                      <CheckerBackground />
+                    )}
+                  </button>
+                ) : photo.src ? (
                   <img
                     src={photo.src}
                     alt=""

@@ -352,6 +352,82 @@ type UploaderSearchRaw = {
   uploaderRelation?: number | string
 }
 
+export type PhotoSearchField = 'name' | 'message' | 'tags'
+
+export type PhotoSearchQuery = {
+  eventId: string
+  q: string
+  page?: number
+  offset?: number
+  order?: SortOrder
+  fields?: PhotoSearchField[]
+}
+
+export type PhotoSearchResult = PhotoSummary & {
+  matchedMessage: string | null
+}
+
+export type PhotoSearchPage = {
+  items: PhotoSearchResult[]
+  total: number
+  page: number | null
+  hasNext: boolean
+}
+
+type RawSearchResponse =
+  | RawPhoto[]
+  | {
+      photos?: RawPhoto[]
+      items?: RawPhoto[]
+      data?: RawPhoto[]
+      pagination?: {
+        total?: number
+        offset?: number
+        page?: number
+        pageSize?: number
+      } | null
+      total?: number
+      hasNext?: boolean
+      nextPage?: number | null
+    }
+
+export async function searchPhotos(
+  query: PhotoSearchQuery,
+): Promise<PhotoSearchPage> {
+  const usp = new URLSearchParams()
+  usp.set('eventId', query.eventId)
+  usp.set('q', query.q)
+  if (query.page != null) usp.set('page', String(query.page))
+  if (query.offset != null) usp.set('offset', String(query.offset))
+  if (query.order) usp.set('order', query.order)
+  if (query.fields && query.fields.length > 0) {
+    usp.set('fields', query.fields.join(','))
+  }
+  const raw = await apiFetch<RawSearchResponse>(
+    `/photo/views/search?${usp.toString()}`,
+  )
+  const list = Array.isArray(raw)
+    ? raw
+    : (raw.photos ?? raw.items ?? raw.data ?? [])
+  const items: PhotoSearchResult[] = list.map((p) => {
+    const raw = p as unknown as { matchedMessage?: unknown }
+    return {
+      ...normalizePhoto(p),
+      matchedMessage:
+        typeof raw.matchedMessage === 'string' ? raw.matchedMessage : null,
+    }
+  })
+  if (Array.isArray(raw)) {
+    return { items, total: items.length, page: null, hasNext: false }
+  }
+  return {
+    items,
+    total: raw.pagination?.total ?? raw.total ?? items.length,
+    page: raw.pagination?.page ?? null,
+    hasNext: raw.hasNext ?? raw.nextPage != null,
+  }
+}
+
 export async function searchUploader(
   eventId: string,
   name: string,
@@ -392,6 +468,12 @@ export async function toggleFavorite(photoId: string): Promise<void> {
 
 export async function deletePhoto(photoId: string): Promise<void> {
   await apiFetch<unknown>(`/photo/${encodeURIComponent(photoId)}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function deletePhotoAsHost(photoId: string): Promise<void> {
+  await apiFetch<unknown>(`/photo/host/${encodeURIComponent(photoId)}`, {
     method: 'DELETE',
   })
 }
