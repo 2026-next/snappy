@@ -82,7 +82,7 @@ describe('photo api', () => {
     expect(RELATION_LABELS[2]).toBe('친구')
   })
 
-  it('getAlbum builds /photo query and normalizes paginated payloads', async () => {
+  it('getAlbum builds /photo/views query and normalizes paginated payloads', async () => {
     const calls = stubFetch(() =>
       jsonResponse({
         items: [{ id: 'p-1', url: 'https://cdn/1.jpg', favorite: true }],
@@ -94,7 +94,7 @@ describe('photo api', () => {
 
     const result = await getAlbum({ eventId: 'evt-1', page: 1, order: 'desc' })
 
-    expect(calls[0].url).toContain('/photo?')
+    expect(calls[0].url).toContain('/photo/views?')
     expect(calls[0].url).toContain('eventId=evt-1')
     expect(calls[0].url).toContain('page=1')
     expect(calls[0].url).toContain('order=desc')
