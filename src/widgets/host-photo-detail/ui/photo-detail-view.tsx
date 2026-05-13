@@ -9,6 +9,12 @@ import {
   getPhotoDetail,
   toggleFavorite,
 } from '@/shared/api/photo'
+import {
+  type AnalysisJob,
+  type SuggestedEnhancement,
+  isTerminalStatus,
+  pollAnalysisJob,
+} from '@/shared/api/photo-ai'
 
 const CHEVRON_RIGHT = '/icons/chevron-right.svg'
 const MORE_ICON = '/icons/more.svg'
@@ -49,6 +55,8 @@ export function PhotoDetailView() {
   const [error, setError] = useState<string | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isMutating, setIsMutating] = useState(false)
+  const [analysis, setAnalysis] = useState<AnalysisJob | null>(null)
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
 
   useEffect(() => {
     if (albumTitle || !albumId) return
@@ -80,6 +88,24 @@ export function PhotoDetailView() {
     return () => {
       cancelled = true
     }
+  }, [photoId])
+
+  useEffect(() => {
+    if (!photoId) return
+    const controller = new AbortController()
+    setAnalysis(null)
+    setAnalysisError(null)
+    pollAnalysisJob(photoId, { signal: controller.signal })
+      .then((job) => {
+        if (controller.signal.aborted) return
+        setAnalysis(job)
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return
+        if (err instanceof Error && err.message === 'aborted') return
+        setAnalysisError(err instanceof Error ? err.message : 'AI 분석을 불러오지 못했어요')
+      })
+    return () => controller.abort()
   }, [photoId])
 
   const handleBack = () => navigate(-1)
@@ -121,12 +147,28 @@ export function PhotoDetailView() {
     }
   }
 
-  const handleEdit = () => {
-    if (!albumId || !photoId) return
+  const handleEdit = (prompt?: string) => {
+    if (!albumId || !photoId || !photo) return
     navigate(`/host/albums/${albumId}/photos/${photoId}/edit`, {
-      state: { photoUrl: photoSrc },
+      state: {
+        photoUrl: photo.url ?? photo.thumbnailUrl ?? null,
+        suggestedPrompt: prompt,
+      },
     })
   }
+
+  const handleSuggestionClick = (suggestion: SuggestedEnhancement) => {
+    if (!photo) return
+    handleEdit(suggestion.suggestedPrompt)
+  }
+
+  const analysisStatus = analysis?.status ?? null
+  const analysisResult = analysis?.result ?? null
+  const isAnalysisLoading = analysisStatus !== null && !isTerminalStatus(analysisStatus)
+  const showAnalysisPlaceholder = !analysis && !analysisError
+  const suggestions = analysisResult?.suggestedEnhancements ?? []
+  const compositionScore = analysisResult?.composition.score ?? null
+  const sharpnessScore = analysisResult?.sharpness.score ?? null
 
   const photoSrc = photo?.url ?? photo?.thumbnailUrl ?? FALLBACK_PHOTO
   const isFavorite = photo?.isFavorite ?? false
@@ -263,10 +305,99 @@ export function PhotoDetailView() {
         </div>
       </div>
 
+      <section
+        aria-label="AI 분석 결과"
+        className="mt-4 flex flex-col gap-2 px-5"
+      >
+        <div className="flex flex-col items-start gap-2 rounded-2xl bg-[#f4f6fa] px-5 py-3">
+          <div className="flex w-full items-center justify-between">
+            <p className="flex items-center gap-1 text-[14px] font-medium leading-[1.4] tracking-[-0.28px] text-[#222226]">
+              <img src={AI_SPARKLE} alt="" className="h-4 w-4" aria-hidden="true" />
+              AI 분석
+            </p>
+            {analysisStatus && (
+              <span
+                className="text-[12px] tracking-[-0.24px] text-[#616369]"
+                data-testid="ai-analysis-status"
+              >
+                {analysisStatus === 'SUCCEEDED' && '분석 완료'}
+                {analysisStatus === 'FAILED' && '분석 실패'}
+                {analysisStatus === 'PROCESSING' && '분석 중...'}
+                {analysisStatus === 'PENDING' && '분석 대기 중...'}
+              </span>
+            )}
+          </div>
+          {showAnalysisPlaceholder && (
+            <p className="text-[12px] tracking-[-0.24px] text-[#a2a5ad]">
+              AI 분석을 불러오는 중...
+            </p>
+          )}
+          {isAnalysisLoading && !analysisResult && (
+            <p className="text-[12px] tracking-[-0.24px] text-[#a2a5ad]">
+              사진을 분석하고 있어요
+            </p>
+          )}
+          {analysisError && (
+            <p className="text-[12px] tracking-[-0.24px] text-[#e23a3a]">
+              {analysisError}
+            </p>
+          )}
+          {analysisResult && (
+            <div className="flex w-full flex-col gap-3">
+              <div className="flex gap-4 text-[12px] tracking-[-0.24px] text-[#616369]">
+                <span>
+                  구도 점수
+                  <span className="ml-1 font-medium text-[#222226]">
+                    {compositionScore != null ? compositionScore.toFixed(1) : '-'}
+                  </span>
+                </span>
+                <span>
+                  선명도
+                  <span className="ml-1 font-medium text-[#222226]">
+                    {sharpnessScore != null ? sharpnessScore.toFixed(1) : '-'}
+                  </span>
+                </span>
+                <span>
+                  인물
+                  <span className="ml-1 font-medium text-[#222226]">
+                    {analysisResult.hasPerson
+                      ? `${analysisResult.personCount}명`
+                      : '없음'}
+                  </span>
+                </span>
+              </div>
+              {suggestions.length > 0 && (
+                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {suggestions.map((s) => (
+                    <button
+                      key={`${s.type}-${s.suggestedPrompt}`}
+                      type="button"
+                      onClick={() => handleSuggestionClick(s)}
+                      disabled={!photo}
+                      className="flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-2 text-[12px] font-medium tracking-[-0.24px] text-[#222226] shadow-[0_1px_2px_rgba(34,34,38,0.05)] transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-50"
+                    >
+                      {s.iconUrl && (
+                        <img
+                          src={s.iconUrl}
+                          alt=""
+                          className="h-4 w-4"
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span>{s.type || '추천 보정'}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
       <div className="mt-auto px-5 pb-5 pt-6">
         <button
           type="button"
-          onClick={handleEdit}
+          onClick={() => handleEdit()}
           disabled={isLoading || !photo}
           className="flex h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-[#222226] text-[18px] font-medium text-white transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-50"
         >

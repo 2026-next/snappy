@@ -1,5 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
+
+import {
+  type EnhancementJob,
+  type PhotoVersion,
+  createEnhancement,
+  listPhotoVersions,
+  pollEnhancementJob,
+} from '@/shared/api/photo-ai'
 
 type Tab = 'filter' | 'color' | 'crop' | 'auto' | 'element' | 'portrait'
 
@@ -269,10 +277,19 @@ export function PhotoEditView() {
   const location = useLocation()
   const { albumId = '', photoId = '' } = useParams<{ albumId: string; photoId: string }>()
 
-  const photoUrl: string =
-    (location.state as { photoUrl?: string } | null)?.photoUrl ?? FALLBACK_PHOTO
+  const navState = location.state as {
+    photoUrl?: string
+    suggestedPrompt?: string
+  } | null
+  const originalPhotoUrl: string = navState?.photoUrl ?? FALLBACK_PHOTO
+  const suggestedPromptFromState: string =
+    typeof navState?.suggestedPrompt === 'string' && navState.suggestedPrompt.trim().length > 0
+      ? navState.suggestedPrompt
+      : ''
 
-  const [activeTab, setActiveTab] = useState<Tab>('filter')
+  const [activeTab, setActiveTab] = useState<Tab>(
+    suggestedPromptFromState ? 'element' : 'filter',
+  )
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null)
   const [selectedAuto, setSelectedAuto] = useState<string | null>(null)
   const [colorValue, setColorValue] = useState(0)
@@ -281,9 +298,38 @@ export function PhotoEditView() {
   const [perspV, setPerspV] = useState(0)
   const [perspH, setPerspH] = useState(0)
   const [cropShape, setCropShape] = useState<'circle' | 'trap-v' | 'trap-h'>('circle')
-  const [elementInput, setElementInput] = useState('')
+  const [elementInput, setElementInput] = useState(suggestedPromptFromState)
   const [activeTags, setActiveTags] = useState<string[]>([])
   const [tagSetIndex, setTagSetIndex] = useState(0)
+  const [aiJob, setAiJob] = useState<EnhancementJob | null>(null)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const [isAiSubmitting, setIsAiSubmitting] = useState(false)
+  const [enhancedPhotoUrl, setEnhancedPhotoUrl] = useState<string | null>(null)
+  const aiAbortRef = useRef<AbortController | null>(null)
+  const [isVersionsOpen, setIsVersionsOpen] = useState(false)
+  const [versions, setVersions] = useState<PhotoVersion[] | null>(null)
+  const [versionsLoading, setVersionsLoading] = useState(false)
+  const [versionsError, setVersionsError] = useState<string | null>(null)
+
+  const photoUrl = enhancedPhotoUrl ?? originalPhotoUrl
+
+  useEffect(() => {
+    return () => {
+      aiAbortRef.current?.abort()
+    }
+  }, [])
+
+  useEffect(() => {
+    aiAbortRef.current?.abort()
+    setAiJob(null)
+    setAiError(null)
+    setIsAiSubmitting(false)
+    setEnhancedPhotoUrl(null)
+    setVersions(null)
+    setVersionsError(null)
+    setVersionsLoading(false)
+    setIsVersionsOpen(false)
+  }, [photoId])
 
   const [faceFrames, setFaceFrames] = useState<FaceFrame[]>([
     { id: 1, left: 102, top: 52, width: 75, height: 83 },
@@ -453,6 +499,87 @@ export function PhotoEditView() {
     setCropHistory((h) => [...h, before])
     setCropFuture([])
   }
+
+  const aiStatus = aiJob?.status ?? null
+  const isAiProcessing =
+    isAiSubmitting ||
+    aiStatus === 'PENDING' ||
+    aiStatus === 'PROCESSING'
+
+  const handleRunAiEnhancement = async () => {
+    if (!photoId) return
+    const prompt = elementInput.trim()
+    if (prompt.length === 0) {
+      setAiError('보정 요청을 입력해 주세요')
+      return
+    }
+    if (isAiProcessing) return
+
+    aiAbortRef.current?.abort()
+    const controller = new AbortController()
+    aiAbortRef.current = controller
+
+    setAiError(null)
+    setIsAiSubmitting(true)
+    try {
+      const created = await createEnhancement(photoId, prompt)
+      if (controller.signal.aborted) return
+      setAiJob(created)
+      const finalJob = await pollEnhancementJob(photoId, created.jobId, {
+        signal: controller.signal,
+      })
+      if (controller.signal.aborted) return
+      setAiJob(finalJob)
+      if (finalJob.status === 'SUCCEEDED' && finalJob.resultVersion?.url) {
+        setEnhancedPhotoUrl(finalJob.resultVersion.url)
+      } else if (finalJob.status === 'FAILED') {
+        setAiError(finalJob.error?.message ?? 'AI 보정에 실패했어요')
+      }
+    } catch (err) {
+      if (controller.signal.aborted) return
+      if (err instanceof Error && err.message === 'aborted') return
+      setAiError(err instanceof Error ? err.message : 'AI 보정 요청에 실패했어요')
+    } finally {
+      if (!controller.signal.aborted) {
+        setIsAiSubmitting(false)
+      }
+    }
+  }
+
+  const handleOpenVersions = async () => {
+    if (!photoId) return
+    setIsVersionsOpen(true)
+    if (versions !== null || versionsLoading) return
+    setVersionsLoading(true)
+    setVersionsError(null)
+    try {
+      const list = await listPhotoVersions(photoId)
+      setVersions(list)
+    } catch (err) {
+      setVersionsError(err instanceof Error ? err.message : '버전 목록을 불러오지 못했어요')
+    } finally {
+      setVersionsLoading(false)
+    }
+  }
+
+  const handleSelectVersion = (version: PhotoVersion) => {
+    if (!version.url) return
+    setEnhancedPhotoUrl(version.url)
+    setIsVersionsOpen(false)
+  }
+
+  const aiStatusLabel = useMemo<string | null>(() => {
+    if (aiError) return aiError
+    if (!aiStatus) return null
+    if (aiStatus === 'PENDING') return 'AI 보정 대기 중...'
+    if (aiStatus === 'PROCESSING') return 'AI 보정 진행 중...'
+    if (aiStatus === 'FAILED') {
+      const detail = aiJob?.error?.message?.trim()
+      return detail ? `AI 보정에 실패했어요 (${detail})` : 'AI 보정에 실패했어요'
+    }
+    if (aiStatus === 'SUCCEEDED') return 'AI 보정 완료'
+    return null
+  }, [aiStatus, aiError, aiJob])
 
   const handleBack = () => setIsExitModalOpen(true)
   const handleDone = () => setIsExitModalOpen(true)
@@ -984,12 +1111,43 @@ export function PhotoEditView() {
             />
             <button
               type="button"
-              className="flex h-[38px] items-center justify-center rounded-[10px] bg-[#222226] px-[8px]"
+              onClick={handleRunAiEnhancement}
+              disabled={isAiProcessing || elementInput.trim().length === 0}
+              aria-label="AI 보정 실행"
+              data-testid="ai-enhancement-trigger"
+              className="flex h-[38px] items-center justify-center rounded-[10px] bg-[#222226] px-[8px] disabled:opacity-40"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2.4L14.28 9.12L21 11.4L14.28 13.68L12 20.4L9.72 13.68L3 11.4L9.72 9.12L12 2.4Z" fill="white" />
-                <path d="M19.2 16.8L20.16 19.44L22.8 20.4L20.16 21.36L19.2 24L18.24 21.36L15.6 20.4L18.24 19.44L19.2 16.8Z" fill="white" />
-              </svg>
+              {isAiProcessing ? (
+                <span
+                  className="size-[18px] animate-spin rounded-full border-[2px] border-white border-t-transparent"
+                  aria-hidden="true"
+                />
+              ) : (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 2.4L14.28 9.12L21 11.4L14.28 13.68L12 20.4L9.72 13.68L3 11.4L9.72 9.12L12 2.4Z" fill="white" />
+                  <path d="M19.2 16.8L20.16 19.44L22.8 20.4L20.16 21.36L19.2 24L18.24 21.36L15.6 20.4L18.24 19.44L19.2 16.8Z" fill="white" />
+                </svg>
+              )}
+            </button>
+          </div>
+          {aiStatusLabel && (
+            <p
+              className={`text-[12px] tracking-[-0.24px] ${
+                aiError || aiStatus === 'FAILED' ? 'text-[#e23a3a]' : 'text-[#616369]'
+              }`}
+              role="status"
+              data-testid="ai-enhancement-status"
+            >
+              {aiStatusLabel}
+            </p>
+          )}
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={handleOpenVersions}
+              className="text-[12px] tracking-[-0.24px] text-[#616369] underline-offset-2 hover:underline"
+            >
+              이전 보정 보기
             </button>
           </div>
         </div>
@@ -1113,6 +1271,81 @@ export function PhotoEditView() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isVersionsOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="photo-versions-title"
+          className="fixed inset-0 z-30 mx-auto flex w-full max-w-[402px] items-end justify-center"
+        >
+          <button
+            type="button"
+            aria-label="닫기"
+            onClick={() => setIsVersionsOpen(false)}
+            className="absolute inset-0 bg-black/40"
+          />
+          <div className="relative flex max-h-[60vh] w-full flex-col gap-3 rounded-t-[18px] bg-white px-5 pb-6 pt-5">
+            <h2
+              id="photo-versions-title"
+              className="text-[18px] font-bold leading-normal tracking-[-0.36px] text-[#222226]"
+            >
+              이전 보정 버전
+            </h2>
+            {versionsLoading && (
+              <p className="text-[12px] tracking-[-0.24px] text-[#a2a5ad]">
+                버전을 불러오는 중...
+              </p>
+            )}
+            {versionsError && (
+              <p className="text-[12px] tracking-[-0.24px] text-[#e23a3a]">
+                {versionsError}
+              </p>
+            )}
+            {versions && versions.length === 0 && (
+              <p className="text-[12px] tracking-[-0.24px] text-[#a2a5ad]">
+                보정 버전이 아직 없어요
+              </p>
+            )}
+            <ul className="flex max-h-[44vh] flex-col gap-2 overflow-y-auto">
+              {versions?.map((version) => (
+                <li key={version.versionId}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectVersion(version)}
+                    disabled={!version.url}
+                    className="flex w-full items-center gap-3 rounded-2xl bg-[#f4f6fa] p-3 text-left transition-opacity hover:opacity-90 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <div className="size-[56px] shrink-0 overflow-hidden rounded-[10px] bg-white">
+                      {version.url ? (
+                        <img
+                          src={version.url}
+                          alt=""
+                          className="size-full object-cover"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="flex flex-1 flex-col gap-1">
+                      <p className="text-[13px] font-medium tracking-[-0.26px] text-[#222226]">
+                        {version.isOriginal ? '원본' : (version.prompt ?? '보정본')}
+                      </p>
+                      <p className="text-[11px] tracking-[-0.22px] text-[#616369]">
+                        {new Date(version.createdAt).toLocaleString('ko-KR')}
+                      </p>
+                      {!version.url && (
+                        <p className="text-[11px] tracking-[-0.22px] text-[#e23a3a]">
+                          미리보기를 불러올 수 없어요
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       )}
