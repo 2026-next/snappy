@@ -29,13 +29,15 @@ export function GuestLoginPage() {
     }
 
     try {
+      const eventId = event?.id ?? albumId
       const tokens = await guestLogin({
-        eventId: event?.id ?? albumId,
+        eventId,
         name: name.trim(),
         password,
       })
       useAuthStore.getState().setTokens(tokens, null)
       useAuthStore.getState().setGuestName(name.trim())
+      useAuthStore.getState().setGuestEventId(eventId)
       await hydrateSession()
 
       const from = searchParams.get('from') ?? 'upload'

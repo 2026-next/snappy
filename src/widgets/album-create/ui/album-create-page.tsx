@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import { ApiError } from '@/shared/api/client'
 import {
   createEvent,
-  type CreateEventInput,
+  uploadEventThumbnail,
   type EventResponse,
 } from '@/shared/api/event'
 import { useAuthStore } from '@/shared/auth/use-auth-store'
-import { AlbumCreateForm } from '@/widgets/album-create/ui/album-create-form'
+import {
+  AlbumCreateForm,
+  type AlbumCreatePayload,
+} from '@/widgets/album-create/ui/album-create-form'
 import { AlbumShareView } from '@/widgets/album-create/ui/album-share-view'
 
 const CHEVRON_RIGHT = '/icons/chevron-right.svg'
@@ -35,16 +38,24 @@ export function AlbumCreatePage() {
   const [createdEvent, setCreatedEvent] = useState<EventResponse | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [localCoverUrl, setLocalCoverUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (localCoverUrl) URL.revokeObjectURL(localCoverUrl)
+    }
+  }, [localCoverUrl])
 
   const handleBack = () => {
     if (createdEvent) {
       setCreatedEvent(null)
+      setLocalCoverUrl(null)
       return
     }
     navigate(-1)
   }
 
-  const handleCreate = async (input: CreateEventInput) => {
+  const handleCreate = async (input: AlbumCreatePayload) => {
     const name = input.name.trim()
     if (!name) return
     if (!isAuthenticated) {
@@ -54,7 +65,29 @@ export function AlbumCreatePage() {
     setErrorMessage(null)
     setIsSubmitting(true)
     try {
-      const event = await createEvent({ name, eventDate: input.eventDate })
+      const coverFile = input.coverFile
+      const thumbnailMimeType = coverFile
+        ? coverFile.type || 'image/jpeg'
+        : undefined
+      const event = await createEvent({
+        name,
+        eventDate: input.eventDate,
+        thumbnailMimeType,
+      })
+      if (coverFile) {
+        if (event.thumbnailUpload?.uploadUrl) {
+          try {
+            await uploadEventThumbnail(event.thumbnailUpload, coverFile)
+            setLocalCoverUrl(URL.createObjectURL(coverFile))
+          } catch (uploadError) {
+            console.warn('Cover upload failed', uploadError)
+          }
+        } else {
+          console.warn(
+            'createEvent did not return thumbnailUpload; cover not uploaded',
+          )
+        }
+      }
       setCreatedEvent(event)
     } catch (error) {
       setErrorMessage(errorMessageFor(error))
@@ -90,7 +123,7 @@ export function AlbumCreatePage() {
         <AlbumShareView
           albumName={createdEvent.name}
           shareUrl={createdEvent.qrLink}
-          coverUrl={createdEvent.thumbnailUrl ?? null}
+          coverUrl={localCoverUrl ?? createdEvent.thumbnailUrl ?? null}
           onGoHome={handleGoHome}
         />
       ) : (

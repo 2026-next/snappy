@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
+import { joinByAccessCode } from '@/shared/api/guest'
 import { useAuthStore } from '@/shared/auth/use-auth-store'
 import { useGuestEventStore } from '@/shared/guest/use-guest-event-store'
 import { GuestUploadSuccessView } from '@/widgets/guest-upload-success/ui/guest-upload-success-view'
@@ -9,8 +11,15 @@ export function GuestUploadSuccessPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const uploadCount: number = location.state?.uploadCount ?? 0
-  const eventName = useGuestEventStore((s) => s.event?.name ?? '')
+  const event = useGuestEventStore((s) => s.event)
+  const setEvent = useGuestEventStore((s) => s.setEvent)
+  const eventName = event?.name ?? ''
   const uploaderName = useAuthStore((s) => s.guestName ?? '')
+
+  useEffect(() => {
+    if (!albumId || event) return
+    joinByAccessCode(albumId).then(setEvent).catch(() => {})
+  }, [albumId, event, setEvent])
 
   return (
     <GuestUploadSuccessView

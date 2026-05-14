@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import { ApiError } from '@/shared/api/client'
@@ -18,7 +18,7 @@ import {
 } from '@/shared/api/photo-ai'
 
 const CHEVRON_RIGHT = '/icons/chevron-right.svg'
-const MORE_ICON = '/icons/more.svg'
+const SHARE_ICON = '/icons/share.svg'
 const TRASH_ICON = '/icons/trash.svg'
 const DOWNLOAD_ICON = '/icons/download.svg'
 const HEART_OUTLINE = '/icons/heart-outline.svg'
@@ -57,6 +57,16 @@ export function PhotoDetailView() {
   const [analysis, setAnalysis] = useState<AnalysisJob | null>(null)
   const [analysisError, setAnalysisError] = useState<string | null>(null)
   const [imgLoaded, setImgLoaded] = useState(false)
+  const [shareToast, setShareToast] = useState<string | null>(null)
+  const shareToastTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (shareToastTimerRef.current !== null) {
+        window.clearTimeout(shareToastTimerRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (albumTitle || !albumId) return
@@ -110,9 +120,43 @@ export function PhotoDetailView() {
   }, [photoId])
 
   const handleBack = () => navigate(-1)
-  const handleMore = () => {}
   const handleOpenDelete = () => setIsDeleteModalOpen(true)
   const handleCloseDelete = () => setIsDeleteModalOpen(false)
+
+  const showShareToast = (message: string) => {
+    setShareToast(message)
+    if (shareToastTimerRef.current !== null) {
+      window.clearTimeout(shareToastTimerRef.current)
+    }
+    shareToastTimerRef.current = window.setTimeout(() => {
+      setShareToast(null)
+      shareToastTimerRef.current = null
+    }, 2000)
+  }
+
+  const handleShare = async () => {
+    const shareUrl = photo?.url ?? photo?.thumbnailUrl ?? null
+    if (!shareUrl) return
+    const shareData = {
+      title: albumTitle || '사진',
+      text: albumTitle ? `${albumTitle} 사진을 공유해요` : '사진을 공유해요',
+      url: shareUrl,
+    }
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share(shareData)
+        return
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      showShareToast('링크가 복사되었어요')
+    } catch {
+      showShareToast('공유에 실패했어요')
+    }
+  }
 
   const handleConfirmDelete = async () => {
     if (!photoId || isMutating) return
@@ -217,11 +261,12 @@ export function PhotoDetailView() {
         </h1>
         <button
           type="button"
-          onClick={handleMore}
-          aria-label="더 보기"
-          className="absolute right-5 flex h-10 w-10 items-center justify-center"
+          onClick={handleShare}
+          aria-label="공유하기"
+          disabled={!photo}
+          className="absolute right-5 flex h-10 w-10 items-center justify-center disabled:opacity-50"
         >
-          <img src={MORE_ICON} alt="" className="h-6 w-6" aria-hidden="true" />
+          <img src={SHARE_ICON} alt="" className="h-6 w-6" aria-hidden="true" />
         </button>
       </header>
 
@@ -243,7 +288,7 @@ export function PhotoDetailView() {
             src={photoSrc}
             alt=""
             onLoad={() => setImgLoaded(true)}
-            className={`h-full w-full object-cover transition-opacity duration-200 ${
+            className={`h-full w-full object-contain transition-opacity duration-200 ${
               imgLoaded ? 'opacity-100' : 'opacity-0'
             }`}
             aria-hidden="true"
@@ -438,6 +483,18 @@ export function PhotoDetailView() {
           사진 보정하기
         </button>
       </div>
+
+      {shareToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none fixed inset-x-0 bottom-28 z-50 flex justify-center px-4"
+        >
+          <div className="rounded-full bg-[#222226]/95 px-4 py-2 text-[13px] font-medium text-white shadow-lg">
+            {shareToast}
+          </div>
+        </div>
+      )}
 
       {isDeleteModalOpen && (
         <div

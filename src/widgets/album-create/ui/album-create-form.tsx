@@ -7,7 +7,11 @@ import {
   type FormEvent,
 } from 'react'
 
-import type { CreateEventInput } from '@/shared/api/event'
+export type AlbumCreatePayload = {
+  name: string
+  eventDate: string
+  coverFile: File | null
+}
 
 const LINK_ICON = '/icons/link.svg'
 
@@ -21,7 +25,7 @@ const toLocalIsoDate = (date: Date) => {
 }
 
 type AlbumCreateFormProps = {
-  onCreate: (input: CreateEventInput) => void
+  onCreate: (input: AlbumCreatePayload) => void
   isSubmitting?: boolean
   errorMessage?: string | null
   initialCoverFile?: File | null
@@ -70,7 +74,7 @@ export function AlbumCreateForm({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (isSubmitting || !isDateValid) return
-    onCreate({ name, eventDate })
+    onCreate({ name, eventDate, coverFile })
   }
 
   const isDisabled =

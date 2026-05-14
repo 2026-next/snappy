@@ -11,6 +11,8 @@ import {
   pollAnalysisJob,
   pollEnhancementJob,
 } from '@/shared/api/photo-ai'
+import { uploadFiles } from '@/shared/api/upload'
+import { bakeEditedPhoto } from '@/widgets/host-photo-edit/lib/bake-photo'
 
 type Tab = 'filter' | 'color' | 'crop' | 'auto' | 'element' | 'portrait'
 
@@ -357,6 +359,8 @@ export function PhotoEditView() {
   const [isExitModalOpen, setIsExitModalOpen] = useState(false)
   const [isSaveOptionsOpen, setIsSaveOptionsOpen] = useState(false)
   const [isSaveCompleteOpen, setIsSaveCompleteOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [isInputFocused, setIsInputFocused] = useState(false)
   const [keyboardHeight, setKeyboardHeight] = useState(0)
 
@@ -524,7 +528,7 @@ export function PhotoEditView() {
     () =>
       hasPerson
         ? ['filter', 'color', 'crop', 'auto', 'element', 'portrait']
-        : ['filter', 'color', 'crop', 'element', 'portrait'],
+        : ['filter', 'color', 'crop', 'element'],
     [hasPerson],
   )
 
@@ -621,14 +625,39 @@ export function PhotoEditView() {
   }
   const handleConfirmSave = () => {
     setIsExitModalOpen(false)
+    setSaveError(null)
     setIsSaveOptionsOpen(true)
   }
-  const finishSave = () => {
-    setIsSaveOptionsOpen(false)
-    setIsSaveCompleteOpen(true)
+  const persistEdits = async () => {
+    if (isSaving) return
+    setSaveError(null)
+    setIsSaving(true)
+    try {
+      const { file } = await bakeEditedPhoto({
+        photoUrl,
+        cssFilter: combinedFilter,
+      })
+      const result = await uploadFiles([file])
+      if (result.failures.length > 0 || result.uploaded.length === 0) {
+        const reason = result.failures[0]?.error
+        throw reason instanceof Error
+          ? reason
+          : new Error('보정된 사진을 저장하지 못했어요')
+      }
+      setIsSaveOptionsOpen(false)
+      setIsSaveCompleteOpen(true)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : '저장에 실패했어요')
+    } finally {
+      setIsSaving(false)
+    }
   }
-  const handleSaveAsNew = () => finishSave()
-  const handleSaveAsExisting = () => finishSave()
+  const handleSaveAsNew = () => {
+    void persistEdits()
+  }
+  const handleSaveAsExisting = () => {
+    void persistEdits()
+  }
   const handleSaveCompleteHome = () => {
     setIsSaveCompleteOpen(false)
     navigate('/')
@@ -699,24 +728,24 @@ export function PhotoEditView() {
   const perspVDeg = perspV * 0.5  // slider ±20 → ±10°
   const perspHDeg = perspH * 0.5
 
-  // Minimum scale to fully cover the container after rotation + perspective
+  // Scale-down factor so the rotated + perspective-projected image fits
+  // entirely inside the container (no auto-cropping during tilt adjustment).
   const autoAngleScale = (() => {
     const w = 402, h = 302
-    // rotation coverage
+    // rotation fit — invert the cover formula so the rotated bbox fits inside
     const rad = Math.abs(cropAngle) * (Math.PI / 180)
     const angleScale = rad > 0
-      ? Math.max((w * Math.cos(rad) + h * Math.sin(rad)) / w,
-                 (h * Math.cos(rad) + w * Math.sin(rad)) / h)
+      ? Math.min(w / (w * Math.cos(rad) + h * Math.sin(rad)),
+                 h / (h * Math.cos(rad) + w * Math.sin(rad)))
       : 1
-    // perspective coverage — exact formula: s = 1 / (cosθ − dim/2·sinθ/d)
-    // (+1.5% margin for sub-pixel rendering)
+    // perspective fit — closer edge projection: s = 1 / (cosθ + dim/2·sinθ/d)
     const vRad = Math.abs(perspVDeg * Math.PI / 180)
     const hRad = Math.abs(perspHDeg * Math.PI / 180)
-    const perspVScale = vRad > 0 ? 1.015 / (Math.cos(vRad) - (h / 2) * Math.sin(vRad) / PERSP_D) : 1
-    const perspHScale = hRad > 0 ? 1.015 / (Math.cos(hRad) - (w / 2) * Math.sin(hRad) / PERSP_D) : 1
-    return Math.max(1, angleScale, perspVScale, perspHScale)
+    const perspVScale = vRad > 0 ? 1 / (Math.cos(vRad) + (h / 2) * Math.sin(vRad) / PERSP_D) : 1
+    const perspHScale = hRad > 0 ? 1 / (Math.cos(hRad) + (w / 2) * Math.sin(hRad) / PERSP_D) : 1
+    return Math.min(1, angleScale, perspVScale, perspHScale)
   })()
-  const effectiveCropScale = Math.max(cropScale, autoAngleScale)
+  const effectiveCropScale = cropScale * autoAngleScale
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[402px] flex-col bg-white pb-[110px]">
@@ -845,7 +874,7 @@ export function PhotoEditView() {
               transform: `perspective(${PERSP_D}px) rotateX(${perspVDeg}deg) rotateY(${perspHDeg}deg) rotate(${cropAngle}deg) scale(${effectiveCropScale})`,
               ...(combinedFilter ? { filter: combinedFilter } : {}),
             }}
-            className={`h-full w-full object-cover transition-[filter] duration-200 ${
+            className={`h-full w-full object-contain transition-[filter] duration-200 ${
               isAiProcessing ? 'blur-md scale-105' : ''
             }`}
             aria-hidden="true"
@@ -1566,28 +1595,40 @@ export function PhotoEditView() {
       {/* Save options / bottom toolbar — hidden while keyboard is open */}
       {!isKeyboardOpen && isSaveOptionsOpen ? (
         <div className="fixed bottom-[22px] left-1/2 -translate-x-1/2 flex w-[calc(100%-40px)] max-w-[362px] flex-col gap-[8px]">
+          {saveError && (
+            <p
+              role="alert"
+              className="rounded-[12px] bg-[#fdecec] px-3 py-2 text-center text-[13px] font-medium text-[#e23a3a]"
+            >
+              {saveError}
+            </p>
+          )}
           <button
             type="button"
             onClick={handleSaveAsNew}
-            className="flex h-[60px] w-full items-center justify-center rounded-[16px] bg-[#222226] text-[18px] font-semibold tracking-[-0.36px] text-white"
+            disabled={isSaving}
+            aria-busy={isSaving}
+            className="flex h-[60px] w-full items-center justify-center rounded-[16px] bg-[#222226] text-[18px] font-semibold tracking-[-0.36px] text-white disabled:opacity-60"
           >
-            새로운 사진으로 저장
+            {isSaving ? '저장 중...' : '새로운 사진으로 저장'}
           </button>
           <button
             type="button"
             onClick={handleSaveAsExisting}
-            className="flex h-[60px] w-full items-center justify-center rounded-[16px] bg-[#f4f6fa] text-[18px] font-semibold tracking-[-0.36px] text-[#222226]"
+            disabled={isSaving}
+            aria-busy={isSaving}
+            className="flex h-[60px] w-full items-center justify-center rounded-[16px] bg-[#f4f6fa] text-[18px] font-semibold tracking-[-0.36px] text-[#222226] disabled:opacity-60"
           >
-            기존 사진으로 저장
+            {isSaving ? '저장 중...' : '기존 사진으로 저장'}
           </button>
         </div>
       ) : !isKeyboardOpen ? (
         /* Bottom toolbar — fixed pill */
         <nav
           aria-label="보정 탭"
-          className="fixed bottom-[22px] left-1/2 -translate-x-1/2 w-[calc(100%-40px)] max-w-[362px]"
+          className="fixed bottom-[22px] left-1/2 -translate-x-1/2 max-w-[calc(100%-40px)]"
         >
-          <div className="flex items-center gap-[18px] rounded-[100px] bg-[#222226] p-[10px]">
+          <div className="flex w-fit items-center gap-[18px] rounded-[100px] bg-[#222226] p-[10px]">
             {visibleTabs.map((tab) => {
               const isActive = activeTab === tab
               return (

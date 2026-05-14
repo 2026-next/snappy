@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
+import { joinByAccessCode } from '@/shared/api/guest'
 import { getMyMessage, saveMessage } from '@/shared/api/message'
 import { deletePhoto, getMyPhotos, type PhotoSummary } from '@/shared/api/photo'
 import { useAuthStore } from '@/shared/auth/use-auth-store'
+import { useGuestEventStore } from '@/shared/guest/use-guest-event-store'
 import {
   GuestMyPhotosView,
   type Photo,
@@ -16,17 +18,17 @@ function toViewPhoto(photo: PhotoSummary): Photo {
   }
 }
 
-function readGuestName(guest: Record<string, unknown> | null): string {
-  if (!guest) return ''
-  const name = guest['name']
-  return typeof name === 'string' ? name : ''
-}
-
 export function GuestMyPhotosPage() {
   const { albumId = '' } = useParams<{ albumId: string }>()
   const navigate = useNavigate()
-  const guest = useAuthStore((s) => s.guest)
-  const uploaderName = readGuestName(guest)
+  const event = useGuestEventStore((s) => s.event)
+  const setEvent = useGuestEventStore((s) => s.setEvent)
+  const uploaderName = useAuthStore((s) => s.guestName ?? '')
+
+  useEffect(() => {
+    if (!albumId || event) return
+    joinByAccessCode(albumId).then(setEvent).catch(() => {})
+  }, [albumId, event, setEvent])
 
   const [photos, setPhotos] = useState<PhotoSummary[]>([])
   const [message, setMessage] = useState('')
@@ -101,7 +103,7 @@ export function GuestMyPhotosPage() {
 
   return (
     <GuestMyPhotosView
-      albumTitle="내 앨범"
+      albumTitle={event?.name ?? ''}
       uploadCount={photos.length}
       uploaderName={uploaderName}
       photos={photos.map(toViewPhoto)}

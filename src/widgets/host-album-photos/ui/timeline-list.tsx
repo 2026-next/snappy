@@ -22,9 +22,14 @@ export type RowBucket = {
 type TimelineListProps = {
   buckets: RowBucket[]
   onOpenBucket: (bucketId: string) => void
+  onOpenPhoto?: (photoId: string) => void
 }
 
-export function TimelineList({ buckets, onOpenBucket }: TimelineListProps) {
+export function TimelineList({
+  buckets,
+  onOpenBucket,
+  onOpenPhoto,
+}: TimelineListProps) {
   return (
     <ul className="flex flex-col gap-4">
       {buckets.map((bucket) => {
@@ -46,21 +51,34 @@ export function TimelineList({ buckets, onOpenBucket }: TimelineListProps) {
             <div className="flex items-center gap-1">
               {Array.from({ length: previewCount }).map((_, i) => {
                 const thumb = thumbnails[i]
+                const tileClass =
+                  'relative aspect-square min-w-0 flex-1 overflow-hidden rounded-[4px] border border-[#d7dbe2] bg-[#f4f6fa]'
+                const content = thumb?.src ? (
+                  <img
+                    src={thumb.src}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <CheckerBackground />
+                )
+                if (onOpenPhoto && thumb?.id) {
+                  return (
+                    <button
+                      key={`${bucket.id}-preview-${i}`}
+                      type="button"
+                      onClick={() => onOpenPhoto(thumb.id)}
+                      aria-label="사진 자세히 보기"
+                      className={tileClass}
+                    >
+                      {content}
+                    </button>
+                  )
+                }
                 return (
-                  <div
-                    key={`${bucket.id}-preview-${i}`}
-                    className="relative aspect-square min-w-0 flex-1 overflow-hidden rounded-[4px] border border-[#d7dbe2] bg-[#f4f6fa]"
-                  >
-                    {thumb?.src ? (
-                      <img
-                        src={thumb.src}
-                        alt=""
-                        className="absolute inset-0 h-full w-full object-cover"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <CheckerBackground />
-                    )}
+                  <div key={`${bucket.id}-preview-${i}`} className={tileClass}>
+                    {content}
                   </div>
                 )
               })}
