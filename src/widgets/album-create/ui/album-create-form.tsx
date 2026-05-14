@@ -9,8 +9,6 @@ import {
 
 import type { CreateEventInput } from '@/shared/api/event'
 
-const ALBUM_COVER = '/images/album-cover-sample.png'
-const PENCIL_ICON = '/icons/pencil.svg'
 const LINK_ICON = '/icons/link.svg'
 
 const NAME_MAX_LENGTH = 30
@@ -84,45 +82,58 @@ export function AlbumCreateForm({
       className="relative flex flex-1 flex-col items-stretch px-5"
     >
       <div className="mt-[60px] flex justify-center">
-        <div className="relative">
-          <div className="relative h-[140px] w-[140px] overflow-hidden rounded-[26.67px] bg-[#a2a5ad]">
-            {coverPreview ? (
-              <img
-                src={coverPreview}
-                alt=""
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-            ) : (
-              <img
-                src={ALBUM_COVER}
-                alt=""
-                className="absolute left-[-18.95%] top-[-44.53%] h-[204%] w-[137.91%] max-w-none"
-              />
-            )}
+        <input
+          ref={coverInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleCoverChange}
+          data-testid="album-cover-picker"
+        />
+        {coverPreview ? (
+          <div className="relative h-[140px] w-[140px] overflow-hidden rounded-[26.67px] bg-[#e6e8ee]">
+            <img
+              src={coverPreview}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            <button
+              type="button"
+              onClick={() => coverInputRef.current?.click()}
+              aria-label="대표 이미지 변경"
+              className="absolute bottom-2 right-2 flex h-7 items-center justify-center rounded-full bg-[#222226]/90 px-3 text-[11px] font-medium text-white"
+            >
+              변경
+            </button>
           </div>
-          <input
-            ref={coverInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleCoverChange}
-            data-testid="album-cover-picker"
-          />
+        ) : (
           <button
             type="button"
             onClick={() => coverInputRef.current?.click()}
-            aria-label="대표 이미지 변경"
-            className="absolute -bottom-1 -right-1 flex h-[30px] w-[30px] items-center justify-center"
+            aria-label="대표 이미지 업로드"
+            className="flex h-[140px] w-[140px] flex-col items-center justify-center gap-2 rounded-[26.67px] border-2 border-dashed border-[#b7bdc6] bg-[#f4f6fa] text-[#616369] transition-colors hover:border-[#222226] hover:text-[#222226]"
           >
-            <span className="absolute h-[25px] w-[25px] rounded-full bg-[#222226]" />
-            <img
-              src={PENCIL_ICON}
-              alt=""
-              className="relative h-[15px] w-[15px]"
-              aria-hidden="true"
-            />
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#222226] text-white">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M10 4V16M4 10H16"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+            <span className="text-[12px] font-medium tracking-[-0.24px]">
+              대표 이미지 업로드
+            </span>
           </button>
-        </div>
+        )}
       </div>
 
       <div className="mt-[28px] rounded-2xl bg-[#f4f6fa] p-[10px]">
