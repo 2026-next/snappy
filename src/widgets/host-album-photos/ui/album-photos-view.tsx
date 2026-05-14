@@ -332,11 +332,6 @@ export function AlbumPhotosView() {
     if (!albumId) return
     navigate(`/host/albums/${albumId}/share`)
   }
-  const handleDeleteAllFromHeader = async () => {
-    const allIds = album.data.items.map((p) => p.id)
-    if (allIds.length === 0) return
-    await deletePhotos(allIds)
-  }
   const handleToggleFavorite = (id: string) => {
     void toggleFavorite(id)
   }
@@ -469,8 +464,9 @@ export function AlbumPhotosView() {
 
   const isInGroupDetail = category === 'group' && activeGroup !== null
   const isInOtherDetail = isInDetailView && !isInGroupDetail
+  const isFlatSelection = isSelectionMode && isFlatGridView
   const showSelectionBar =
-    isSelectionMode && (isInGroupDetail || isInOtherDetail)
+    isSelectionMode && (isInGroupDetail || isInOtherDetail || isFlatSelection)
 
   const searchQuery = search.trim()
   const isSearching = searchQuery.length > 0
@@ -504,7 +500,6 @@ export function AlbumPhotosView() {
           category="all"
           photos={searchResultItems}
           totalCount={search$.data.total}
-          onDelete={() => {}}
           onToggleFavorite={handleToggleFavorite}
         />
       )
@@ -537,8 +532,12 @@ export function AlbumPhotosView() {
           category={category}
           photos={visibleFlatPhotos}
           totalCount={flatTotalCount}
-          onDelete={handleDeleteAllFromHeader}
           onToggleFavorite={handleToggleFavorite}
+          isSelectionMode={isSelectionMode}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+          onEnterSelection={handleEnterSelection}
+          onExitSelection={exitSelectionMode}
         />
       )
     }
