@@ -41,6 +41,22 @@ export async function uploadEventThumbnail(
   await putToSignedUrl(upload.uploadUrl, file, mime)
 }
 
+export function renameEvent(
+  eventId: string,
+  name: string,
+): Promise<EventResponse> {
+  return apiFetch<EventResponse>(`/event/${encodeURIComponent(eventId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function deleteEvent(eventId: string): Promise<void> {
+  await apiFetch<unknown>(`/event/${encodeURIComponent(eventId)}`, {
+    method: 'DELETE',
+  })
+}
+
 export function getMyEvents(): Promise<EventResponse[]> {
   return apiFetch<EventResponse[]>('/event/my-events')
 }
