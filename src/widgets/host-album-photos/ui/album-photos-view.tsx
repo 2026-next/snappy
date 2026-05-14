@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
-import { getMyEvents } from '@/shared/api/event'
+import { deleteEvent, getMyEvents, renameEvent } from '@/shared/api/event'
 import { type PhotoSummary } from '@/shared/api/photo'
 import { type CategoryKey } from '@/widgets/host-album-photos/model/category'
 import {
@@ -17,7 +17,10 @@ import {
 import { useAlbumPhotosStore } from '@/widgets/host-album-photos/store/album-photos-store'
 import { useGroupStore } from '@/widgets/host-album-photos/store/group-store'
 
+import { AlbumActionsSheet } from './album-actions-sheet'
+import { AlbumDeleteModal } from './album-delete-modal'
 import { AlbumPhotosHeader } from './album-photos-header'
+import { AlbumRenameModal } from './album-rename-modal'
 import { AlbumSearchBar } from './album-search-bar'
 import { CategoryTabs } from './category-tabs'
 import { EmptyState } from './empty-state'
@@ -70,6 +73,13 @@ export function AlbumPhotosView() {
   const [activeBucketId, setActiveBucketId] = useState<string | null>(null)
   const [isSelectionMode, setIsSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [isActionsOpen, setIsActionsOpen] = useState(false)
+  const [isRenameOpen, setIsRenameOpen] = useState(false)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [renameError, setRenameError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const album = useAlbumPhotosStore((state) => state.album)
   const timeline = useAlbumPhotosStore((state) => state.timeline)
@@ -331,6 +341,63 @@ export function AlbumPhotosView() {
   const handleSendShareLink = () => {
     if (!albumId) return
     navigate(`/host/albums/${albumId}/share`)
+  }
+  const handleOpenActions = () => {
+    setIsActionsOpen(true)
+  }
+  const handleCloseActions = () => {
+    setIsActionsOpen(false)
+  }
+  const handleOpenRename = () => {
+    setRenameError(null)
+    setIsActionsOpen(false)
+    setIsRenameOpen(true)
+  }
+  const handleCloseRename = () => {
+    if (isRenaming) return
+    setIsRenameOpen(false)
+    setRenameError(null)
+  }
+  const handleConfirmRename = async (nextName: string) => {
+    if (!albumId || isRenaming) return
+    setIsRenaming(true)
+    setRenameError(null)
+    try {
+      const updated = await renameEvent(albumId, nextName)
+      setAlbumTitle(updated.name)
+      setIsRenameOpen(false)
+    } catch (error) {
+      setRenameError(
+        error instanceof Error ? error.message : '이름을 변경하지 못했어요',
+      )
+    } finally {
+      setIsRenaming(false)
+    }
+  }
+  const handleOpenDelete = () => {
+    setDeleteError(null)
+    setIsActionsOpen(false)
+    setIsDeleteOpen(true)
+  }
+  const handleCloseDelete = () => {
+    if (isDeleting) return
+    setIsDeleteOpen(false)
+    setDeleteError(null)
+  }
+  const handleConfirmDelete = async () => {
+    if (!albumId || isDeleting) return
+    setIsDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteEvent(albumId)
+      setIsDeleteOpen(false)
+      navigate('/')
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error ? error.message : '앨범 삭제에 실패했어요',
+      )
+      setIsDeleting(false)
+    }
   }
   const handleToggleFavorite = (id: string) => {
     void toggleFavorite(id)
@@ -755,6 +822,7 @@ export function AlbumPhotosView() {
         title={albumTitle}
         onBack={handleBack}
         onShare={handleSendShareLink}
+        onMore={handleOpenActions}
       />
 
       <div className="mt-[10px] flex flex-col gap-3">
@@ -831,6 +899,32 @@ export function AlbumPhotosView() {
         <GroupCreateModal
           onClose={() => setOverlay('none')}
           onCreate={handleCreateGroup}
+        />
+      )}
+
+      {isActionsOpen && (
+        <AlbumActionsSheet
+          onRename={handleOpenRename}
+          onDelete={handleOpenDelete}
+          onClose={handleCloseActions}
+        />
+      )}
+      {isRenameOpen && (
+        <AlbumRenameModal
+          initialName={albumTitle}
+          isSubmitting={isRenaming}
+          errorMessage={renameError}
+          onClose={handleCloseRename}
+          onSubmit={handleConfirmRename}
+        />
+      )}
+      {isDeleteOpen && (
+        <AlbumDeleteModal
+          albumName={albumTitle}
+          isSubmitting={isDeleting}
+          errorMessage={deleteError}
+          onClose={handleCloseDelete}
+          onConfirm={handleConfirmDelete}
         />
       )}
     </main>
