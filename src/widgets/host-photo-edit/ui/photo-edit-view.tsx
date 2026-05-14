@@ -11,6 +11,8 @@ import {
   pollAnalysisJob,
   pollEnhancementJob,
 } from '@/shared/api/photo-ai'
+import { uploadFiles } from '@/shared/api/upload'
+import { bakeEditedPhoto } from '@/widgets/host-photo-edit/lib/bake-photo'
 
 type Tab = 'filter' | 'color' | 'crop' | 'auto' | 'element' | 'portrait'
 
@@ -357,6 +359,8 @@ export function PhotoEditView() {
   const [isExitModalOpen, setIsExitModalOpen] = useState(false)
   const [isSaveOptionsOpen, setIsSaveOptionsOpen] = useState(false)
   const [isSaveCompleteOpen, setIsSaveCompleteOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [isInputFocused, setIsInputFocused] = useState(false)
   const [keyboardHeight, setKeyboardHeight] = useState(0)
 
@@ -621,14 +625,39 @@ export function PhotoEditView() {
   }
   const handleConfirmSave = () => {
     setIsExitModalOpen(false)
+    setSaveError(null)
     setIsSaveOptionsOpen(true)
   }
-  const finishSave = () => {
-    setIsSaveOptionsOpen(false)
-    setIsSaveCompleteOpen(true)
+  const persistEdits = async () => {
+    if (isSaving) return
+    setSaveError(null)
+    setIsSaving(true)
+    try {
+      const { file } = await bakeEditedPhoto({
+        photoUrl,
+        cssFilter: combinedFilter,
+      })
+      const result = await uploadFiles([file])
+      if (result.failures.length > 0 || result.uploaded.length === 0) {
+        const reason = result.failures[0]?.error
+        throw reason instanceof Error
+          ? reason
+          : new Error('보정된 사진을 저장하지 못했어요')
+      }
+      setIsSaveOptionsOpen(false)
+      setIsSaveCompleteOpen(true)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : '저장에 실패했어요')
+    } finally {
+      setIsSaving(false)
+    }
   }
-  const handleSaveAsNew = () => finishSave()
-  const handleSaveAsExisting = () => finishSave()
+  const handleSaveAsNew = () => {
+    void persistEdits()
+  }
+  const handleSaveAsExisting = () => {
+    void persistEdits()
+  }
   const handleSaveCompleteHome = () => {
     setIsSaveCompleteOpen(false)
     navigate('/')
@@ -1566,19 +1595,31 @@ export function PhotoEditView() {
       {/* Save options / bottom toolbar — hidden while keyboard is open */}
       {!isKeyboardOpen && isSaveOptionsOpen ? (
         <div className="fixed bottom-[22px] left-1/2 -translate-x-1/2 flex w-[calc(100%-40px)] max-w-[362px] flex-col gap-[8px]">
+          {saveError && (
+            <p
+              role="alert"
+              className="rounded-[12px] bg-[#fdecec] px-3 py-2 text-center text-[13px] font-medium text-[#e23a3a]"
+            >
+              {saveError}
+            </p>
+          )}
           <button
             type="button"
             onClick={handleSaveAsNew}
-            className="flex h-[60px] w-full items-center justify-center rounded-[16px] bg-[#222226] text-[18px] font-semibold tracking-[-0.36px] text-white"
+            disabled={isSaving}
+            aria-busy={isSaving}
+            className="flex h-[60px] w-full items-center justify-center rounded-[16px] bg-[#222226] text-[18px] font-semibold tracking-[-0.36px] text-white disabled:opacity-60"
           >
-            새로운 사진으로 저장
+            {isSaving ? '저장 중...' : '새로운 사진으로 저장'}
           </button>
           <button
             type="button"
             onClick={handleSaveAsExisting}
-            className="flex h-[60px] w-full items-center justify-center rounded-[16px] bg-[#f4f6fa] text-[18px] font-semibold tracking-[-0.36px] text-[#222226]"
+            disabled={isSaving}
+            aria-busy={isSaving}
+            className="flex h-[60px] w-full items-center justify-center rounded-[16px] bg-[#f4f6fa] text-[18px] font-semibold tracking-[-0.36px] text-[#222226] disabled:opacity-60"
           >
-            기존 사진으로 저장
+            {isSaving ? '저장 중...' : '기존 사진으로 저장'}
           </button>
         </div>
       ) : !isKeyboardOpen ? (
