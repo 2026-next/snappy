@@ -18,6 +18,7 @@ import {
   replacePhotoFile,
 } from '@/shared/api/photo'
 import { putToSignedUrl } from '@/shared/api/upload'
+import { useAlbumPhotosStore } from '@/widgets/host-album-photos/store/album-photos-store'
 import { bakeEditedPhoto } from '@/widgets/host-photo-edit/lib/bake-photo'
 
 type Tab = 'filter' | 'color' | 'crop' | 'auto' | 'element' | 'portrait'
@@ -711,6 +712,10 @@ export function PhotoEditView() {
         }
         throw err
       }
+      // Mark the album cache stale so the list reflects the new/updated
+      // photo when the user returns to the album view (otherwise the
+      // cached `loadedEventId` would skip refetch).
+      useAlbumPhotosStore.getState().invalidate()
       setIsSaveOptionsOpen(false)
       setIsSaveCompleteOpen(true)
     } catch (err) {

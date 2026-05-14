@@ -10,6 +10,7 @@ import {
   getPhotoDetail,
   toggleFavorite,
 } from '@/shared/api/photo'
+import { useAlbumPhotosStore } from '@/widgets/host-album-photos/store/album-photos-store'
 import {
   type AnalysisJob,
   type SuggestedEnhancement,
@@ -173,6 +174,9 @@ export function PhotoDetailView() {
     setIsMutating(true)
     try {
       await deletePhotoAsHost(photoId)
+      // Mark the album cache stale so the list refetches on next mount
+      // instead of showing the just-deleted photo until manual refresh.
+      useAlbumPhotosStore.getState().invalidate()
       setIsDeleteModalOpen(false)
       navigate(-1)
     } catch (err) {
