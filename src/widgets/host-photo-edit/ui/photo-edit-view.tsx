@@ -524,7 +524,7 @@ export function PhotoEditView() {
     () =>
       hasPerson
         ? ['filter', 'color', 'crop', 'auto', 'element', 'portrait']
-        : ['filter', 'color', 'crop', 'element', 'portrait'],
+        : ['filter', 'color', 'crop', 'element'],
     [hasPerson],
   )
 
@@ -845,9 +845,9 @@ export function PhotoEditView() {
               transform: `perspective(${PERSP_D}px) rotateX(${perspVDeg}deg) rotateY(${perspHDeg}deg) rotate(${cropAngle}deg) scale(${effectiveCropScale})`,
               ...(combinedFilter ? { filter: combinedFilter } : {}),
             }}
-            className={`h-full w-full object-cover transition-[filter] duration-200 ${
-              isAiProcessing ? 'blur-md scale-105' : ''
-            }`}
+            className={`h-full w-full transition-[filter] duration-200 ${
+              activeTab === 'crop' ? 'object-cover' : 'object-contain'
+            } ${isAiProcessing ? 'blur-md scale-105' : ''}`}
             aria-hidden="true"
           />
           {isAiProcessing && (
