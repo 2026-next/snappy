@@ -24,12 +24,14 @@ type PersistedFields = {
   sessionType: SessionType | null
   user: Record<string, unknown> | null
   guest: Record<string, unknown> | null
+  guestName: string | null
 }
 
 type AuthState = PersistedFields & {
   isAuthenticated: boolean
   setTokens: (pair: TokenPair, provider: AuthProvider | null) => void
   setSession: (me: MeResponse) => void
+  setGuestName: (name: string) => void
   logout: () => void
 }
 
@@ -41,6 +43,7 @@ const emptyPersisted: PersistedFields = {
   sessionType: null,
   user: null,
   guest: null,
+  guestName: null,
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -65,6 +68,7 @@ export const useAuthStore = create<AuthState>()(
           user: me.user ?? null,
           guest: me.guest ?? null,
         }),
+      setGuestName: (name) => set({ guestName: name }),
       logout: () => set({ ...emptyPersisted, isAuthenticated: false }),
     }),
     {
@@ -78,6 +82,7 @@ export const useAuthStore = create<AuthState>()(
         sessionType: state.sessionType,
         user: state.user,
         guest: state.guest,
+        guestName: state.guestName,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

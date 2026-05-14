@@ -10,8 +10,7 @@ export function GuestUploadSuccessPage() {
   const navigate = useNavigate()
   const uploadCount: number = location.state?.uploadCount ?? 0
   const eventName = useGuestEventStore((s) => s.event?.name ?? '')
-  const guest = useAuthStore((s) => s.guest)
-  const uploaderName = typeof guest?.['name'] === 'string' ? guest['name'] : ''
+  const uploaderName = useAuthStore((s) => s.guestName ?? '')
 
   return (
     <GuestUploadSuccessView

@@ -47,6 +47,7 @@ export function GuestSignupPage() {
         relation,
       })
       useAuthStore.getState().setTokens(tokens, null)
+      useAuthStore.getState().setGuestName(name.trim())
       await hydrateSession()
 
       const from = searchParams.get('from') ?? 'upload'
