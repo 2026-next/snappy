@@ -21,6 +21,7 @@ import { HostPhotoSavePage } from '@/pages/host/photo-save'
 import { HostPhotoViewPage } from '@/pages/host/photo-view'
 import { NotFoundPage } from '@/pages/not-found'
 import { ProfilePage } from '@/pages/profile'
+import { RequireHost } from '@/shared/auth/require-host'
 
 export const routeTree: RouteObject[] = [
   {
@@ -51,9 +52,10 @@ export const routeTree: RouteObject[] = [
         ],
       },
 
-      // Host Routes
+      // Host Routes (auth-gated — non-host sessions are redirected to /auth)
       {
         path: 'host',
+        element: <RequireHost />,
         children: [
           {
             path: 'albums/:albumId',
