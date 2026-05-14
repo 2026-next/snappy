@@ -1585,9 +1585,9 @@ export function PhotoEditView() {
         /* Bottom toolbar — fixed pill */
         <nav
           aria-label="보정 탭"
-          className="fixed bottom-[22px] left-1/2 -translate-x-1/2 w-[calc(100%-40px)] max-w-[362px]"
+          className="fixed bottom-[22px] left-1/2 -translate-x-1/2 max-w-[calc(100%-40px)]"
         >
-          <div className="flex items-center gap-[18px] rounded-[100px] bg-[#222226] p-[10px]">
+          <div className="flex w-fit items-center gap-[18px] rounded-[100px] bg-[#222226] p-[10px]">
             {visibleTabs.map((tab) => {
               const isActive = activeTab === tab
               return (
