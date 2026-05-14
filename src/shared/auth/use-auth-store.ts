@@ -25,6 +25,7 @@ type PersistedFields = {
   user: Record<string, unknown> | null
   guest: Record<string, unknown> | null
   guestName: string | null
+  guestEventId: string | null
 }
 
 type AuthState = PersistedFields & {
@@ -32,6 +33,7 @@ type AuthState = PersistedFields & {
   setTokens: (pair: TokenPair, provider: AuthProvider | null) => void
   setSession: (me: MeResponse) => void
   setGuestName: (name: string) => void
+  setGuestEventId: (id: string | null) => void
   logout: () => void
 }
 
@@ -44,6 +46,13 @@ const emptyPersisted: PersistedFields = {
   user: null,
   guest: null,
   guestName: null,
+  guestEventId: null,
+}
+
+function extractGuestEventId(guest: Record<string, unknown> | null): string | null {
+  if (!guest) return null
+  const raw = guest['eventId']
+  return typeof raw === 'string' && raw.length > 0 ? raw : null
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -60,15 +69,22 @@ export const useAuthStore = create<AuthState>()(
           sessionType: null,
           user: null,
           guest: null,
+          guestEventId: null,
           isAuthenticated: true,
         }),
       setSession: (me) =>
-        set({
-          sessionType: me.sessionType,
-          user: me.user ?? null,
-          guest: me.guest ?? null,
+        set((state) => {
+          const guest = me.guest ?? null
+          const extracted = extractGuestEventId(guest)
+          return {
+            sessionType: me.sessionType,
+            user: me.user ?? null,
+            guest,
+            guestEventId: extracted ?? state.guestEventId,
+          }
         }),
       setGuestName: (name) => set({ guestName: name }),
+      setGuestEventId: (id) => set({ guestEventId: id }),
       logout: () => set({ ...emptyPersisted, isAuthenticated: false }),
     }),
     {
@@ -83,6 +99,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         guest: state.guest,
         guestName: state.guestName,
+        guestEventId: state.guestEventId,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

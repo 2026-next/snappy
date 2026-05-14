@@ -40,14 +40,16 @@ export function GuestSignupPage() {
     const relation = GUEST_RELATION_CODE[relationKey]
 
     try {
+      const eventId = event?.id ?? albumId
       const tokens = await guestRegister({
-        eventId: event?.id ?? albumId,
+        eventId,
         name: name.trim(),
         password,
         relation,
       })
       useAuthStore.getState().setTokens(tokens, null)
       useAuthStore.getState().setGuestName(name.trim())
+      useAuthStore.getState().setGuestEventId(eventId)
       await hydrateSession()
 
       const from = searchParams.get('from') ?? 'upload'
