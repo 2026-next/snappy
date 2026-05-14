@@ -82,6 +82,16 @@ export function GuestLoginView({
           </div>
         </section>
 
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={onCreateAccount}
+            className="text-[14px] tracking-[-0.28px] text-[#a2a5ad] underline"
+          >
+            사진을 처음 업로드해요
+          </button>
+        </div>
+
         <div className="grow" />
 
         <button
