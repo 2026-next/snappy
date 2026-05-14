@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { type EventResponse, getMyEvents } from '@/shared/api/event'
@@ -10,7 +10,6 @@ const HOME_COLLAGE = '/images/home-collage.png'
 
 export function HomeView() {
   const navigate = useNavigate()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const sessionType = useAuthStore((s) => s.sessionType)
   const [events, setEvents] = useState<EventResponse[] | null>(null)
@@ -23,30 +22,8 @@ export function HomeView() {
   }
 
   const handleCreateAlbum = () => {
-    fileInputRef.current?.click()
+    navigate('/albums/new')
   }
-
-  const handleCoverPicked = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null
-    event.target.value = ''
-    if (file) {
-      navigate('/albums/new', { state: { coverFile: file } })
-    } else {
-      navigate('/albums/new')
-    }
-  }
-
-  useEffect(() => {
-    const input = fileInputRef.current
-    if (!input) return
-    const handleCancel = () => {
-      navigate('/albums/new')
-    }
-    input.addEventListener('cancel', handleCancel)
-    return () => {
-      input.removeEventListener('cancel', handleCancel)
-    }
-  }, [navigate])
 
   const handleManagePhotos = async () => {
     if (isLoading) return
@@ -101,14 +78,6 @@ export function HomeView() {
         </h1>
 
         <div className="mt-[60px] flex w-full flex-col gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleCoverPicked}
-            data-testid="album-cover-picker"
-          />
           <button
             type="button"
             onClick={handleCreateAlbum}
