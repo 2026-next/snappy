@@ -243,7 +243,7 @@ export function PhotoDetailView() {
             src={photoSrc}
             alt=""
             onLoad={() => setImgLoaded(true)}
-            className={`h-full w-full object-cover transition-opacity duration-200 ${
+            className={`h-full w-full object-contain transition-opacity duration-200 ${
               imgLoaded ? 'opacity-100' : 'opacity-0'
             }`}
             aria-hidden="true"
