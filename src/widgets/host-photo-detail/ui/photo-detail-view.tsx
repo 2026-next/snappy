@@ -119,7 +119,17 @@ export function PhotoDetailView() {
     return () => controller.abort()
   }, [photoId])
 
-  const handleBack = () => navigate(-1)
+  const handleBack = () => {
+    // When the user lands here via the host edit save flow (with replace:true),
+    // navigate(-1) would either bounce back to the edit screen or skip the
+    // album entirely. Route them to the album view instead.
+    const state = location.state as { fromSave?: boolean } | null
+    if (state?.fromSave && albumId) {
+      navigate(`/host/albums/${albumId}`, { replace: true })
+      return
+    }
+    navigate(-1)
+  }
   const handleOpenDelete = () => setIsDeleteModalOpen(true)
   const handleCloseDelete = () => setIsDeleteModalOpen(false)
 

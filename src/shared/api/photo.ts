@@ -136,6 +136,7 @@ export type CreateHostPhotoInput = {
   width?: number
   height?: number
   exifTakenAt?: string
+  sourcePhotoId?: string
 }
 
 export type UploadUrlEntry = {

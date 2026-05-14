@@ -366,6 +366,9 @@ export function PhotoEditView() {
   const [isSaveOptionsOpen, setIsSaveOptionsOpen] = useState(false)
   const [isSaveCompleteOpen, setIsSaveCompleteOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  // photoId of the record the save flow should navigate to. Same as the
+  // original for 'replace' mode; populated from createHostPhoto for 'new'.
+  const [savedPhotoId, setSavedPhotoId] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isInputFocused, setIsInputFocused] = useState(false)
   const [keyboardHeight, setKeyboardHeight] = useState(0)
@@ -668,14 +671,19 @@ export function PhotoEditView() {
 
       try {
         if (mode === 'new') {
-          await createHostPhoto({
+          const created = await createHostPhoto({
             eventId: albumId,
             fileKey: entry.fileKey,
             mimeType,
             fileSizeBytes: baked.file.size,
             width: baked.width,
             height: baked.height,
+            sourcePhotoId: photoId || undefined,
           })
+          if (!created?.id) {
+            throw new Error('새 사진을 저장하지 못했어요')
+          }
+          setSavedPhotoId(created.id)
         } else {
           if (!photoId) {
             throw new Error('원본 사진 정보를 찾을 수 없어요')
@@ -687,6 +695,7 @@ export function PhotoEditView() {
             width: baked.width,
             height: baked.height,
           })
+          setSavedPhotoId(photoId)
         }
       } catch (err) {
         if (err instanceof ApiError) {
@@ -718,11 +727,27 @@ export function PhotoEditView() {
   }
   const handleSaveCompleteHome = () => {
     setIsSaveCompleteOpen(false)
-    navigate('/')
+    // "홈으로 가기" in the host edit save flow means "back to this album",
+    // not the app root. Replace the edit entry so back doesn't return here.
+    navigate(`/host/albums/${albumId}`, { replace: true })
   }
   const handleSaveCompleteBack = () => {
     setIsSaveCompleteOpen(false)
-    navigate(`/host/albums/${albumId}/photos/${photoId}`)
+    // For 'new' mode savedPhotoId is the freshly created record; for 'replace'
+    // it's the same as the original. Falls back to original photoId so users
+    // are never stranded if the create response was malformed.
+    const targetId = savedPhotoId ?? photoId
+    if (!targetId) {
+      navigate(`/host/albums/${albumId}`, { replace: true })
+      return
+    }
+    // `replace: true` drops the edit screen from history, and the state flag
+    // lets photo-detail's back arrow return to the album instead of bouncing
+    // through the now-replaced previous entry.
+    navigate(`/host/albums/${albumId}/photos/${targetId}`, {
+      replace: true,
+      state: { fromSave: true },
+    })
   }
 
   const handleUndo = () => {
