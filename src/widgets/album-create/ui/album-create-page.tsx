@@ -66,17 +66,26 @@ export function AlbumCreatePage() {
     setIsSubmitting(true)
     try {
       const coverFile = input.coverFile
+      const thumbnailMimeType = coverFile
+        ? coverFile.type || 'image/jpeg'
+        : undefined
       const event = await createEvent({
         name,
         eventDate: input.eventDate,
-        thumbnailMimeType: coverFile?.type || undefined,
+        thumbnailMimeType,
       })
-      if (coverFile && event.thumbnailUpload) {
-        try {
-          await uploadEventThumbnail(event.thumbnailUpload, coverFile)
-          setLocalCoverUrl(URL.createObjectURL(coverFile))
-        } catch (uploadError) {
-          console.warn('Cover upload failed', uploadError)
+      if (coverFile) {
+        if (event.thumbnailUpload?.uploadUrl) {
+          try {
+            await uploadEventThumbnail(event.thumbnailUpload, coverFile)
+            setLocalCoverUrl(URL.createObjectURL(coverFile))
+          } catch (uploadError) {
+            console.warn('Cover upload failed', uploadError)
+          }
+        } else {
+          console.warn(
+            'createEvent did not return thumbnailUpload; cover not uploaded',
+          )
         }
       }
       setCreatedEvent(event)
