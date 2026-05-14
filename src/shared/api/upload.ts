@@ -37,7 +37,7 @@ function assertSafeUploadUrl(uploadUrl: string): URL {
   return parsed
 }
 
-async function putToSignedUrl(
+export async function putToSignedUrl(
   uploadUrl: string,
   file: File,
   mimeType: string,
