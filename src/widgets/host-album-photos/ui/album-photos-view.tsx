@@ -587,6 +587,7 @@ export function AlbumPhotosView() {
             setActiveBucketId(bucketId)
             exitSelectionMode()
           }}
+          onOpenPhoto={handleOpenPhoto}
         />
       )
     }
@@ -635,6 +636,7 @@ export function AlbumPhotosView() {
             setActiveBucketId(bucketId)
             exitSelectionMode()
           }}
+          onOpenPhoto={handleOpenPhoto}
         />
       )
     }
