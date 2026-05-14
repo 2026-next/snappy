@@ -60,6 +60,7 @@ type AlbumPhotosState = {
   deletePhotos: (photoIds: string[]) => Promise<void>
 
   resetForEvent: (eventId: string) => void
+  invalidate: () => void
 }
 
 const emptySlice = <T>(initial: T): AsyncSlice<T> => ({
@@ -404,6 +405,18 @@ export const useAlbumPhotosStore = create<AlbumPhotosState>((set, get) => ({
     }
     throw new Error(`${failedIds.length}장의 사진을 삭제하지 못했어요`)
   },
+
+  // Soft-stale every slice: keep the cached data (so the album view renders
+  // immediately on remount) but null out loadedEventId so the existing fetch
+  // effect re-fires once the view mounts again. Used after mutations that
+  // happen outside this store (photo-detail delete, host edit save).
+  invalidate: () =>
+    set((state) => ({
+      album: { ...state.album, loadedEventId: null },
+      timeline: { ...state.timeline, loadedEventId: null },
+      uploader: { ...state.uploader, loadedEventId: null },
+      similar: { ...state.similar, loadedEventId: null },
+    })),
 
   resetForEvent: (eventId) => {
     const state = get()
