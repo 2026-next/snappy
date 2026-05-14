@@ -1068,14 +1068,16 @@ export function PhotoEditView() {
           {cropShape === 'circle' && (
             <RulerSlider
               value={cropAngle}
+              label="수평 기울기"
               onChange={setCropAngle}
               onCommit={handleCropCommit}
+              showValue
             />
           )}
           {cropShape === 'trap-v' && (
             <RulerSlider
               value={perspV}
-              label="수직 보정"
+              label="세로 원근 보정"
               onChange={setPerspV}
               showValue
             />
@@ -1083,7 +1085,7 @@ export function PhotoEditView() {
           {cropShape === 'trap-h' && (
             <RulerSlider
               value={perspH}
-              label="수평 보정"
+              label="가로 원근 보정"
               onChange={setPerspH}
               showValue
             />
