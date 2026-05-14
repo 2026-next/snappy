@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 
-const ALBUM_COVER = '/images/album-cover-sample.png'
 const COPY_ICON = '/icons/copy.svg'
 const QR_ICON = '/icons/qr.svg'
 const SHARE_ICON = '/icons/link.svg'
@@ -32,18 +31,22 @@ function sanitizeFilename(input: string): string {
 type AlbumShareViewProps = {
   albumName: string
   shareUrl: string
+  coverUrl?: string | null
   onGoHome: () => void
 }
 
 export function AlbumShareView({
   albumName,
   shareUrl,
+  coverUrl,
   onGoHome,
 }: AlbumShareViewProps) {
   const safeUrl = safeShareUrl(shareUrl)
   const [toast, setToast] = useState<string | null>(null)
   const [isSavingQr, setIsSavingQr] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+  const [coverLoadedSrc, setCoverLoadedSrc] = useState<string | null>(null)
+  const coverLoaded = !!coverUrl && coverLoadedSrc === coverUrl
   const toastTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -150,12 +153,23 @@ export function AlbumShareView({
   return (
     <section className="relative flex flex-1 flex-col items-stretch px-5 pb-6">
       <div className="mt-[86px] flex justify-center">
-        <div className="relative h-[140px] w-[140px] overflow-hidden rounded-[26.67px] bg-[#a2a5ad]">
-          <img
-            src={ALBUM_COVER}
-            alt=""
-            className="absolute left-[-18.95%] top-[-44.53%] h-[204%] w-[137.91%] max-w-none"
-          />
+        <div className="relative h-[140px] w-[140px] overflow-hidden rounded-[26.67px] bg-[#e6e8ee]">
+          {(!coverUrl || !coverLoaded) && (
+            <div
+              aria-hidden="true"
+              className="shimmer absolute inset-0 h-full w-full"
+            />
+          )}
+          {coverUrl && (
+            <img
+              src={coverUrl}
+              alt=""
+              onLoad={() => setCoverLoadedSrc(coverUrl ?? null)}
+              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${
+                coverLoaded ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+          )}
         </div>
       </div>
 

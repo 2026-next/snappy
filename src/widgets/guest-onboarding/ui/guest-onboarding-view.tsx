@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import { SnappyLogo } from '@/shared/ui/snappy-logo'
 
 interface GuestOnboardingViewProps {
@@ -21,6 +23,9 @@ export function GuestOnboardingView({
   isHistoryModalOpen = false,
   onHistoryModalConfirm,
 }: GuestOnboardingViewProps) {
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null)
+  const coverLoaded = !!thumbnailUrl && loadedSrc === thumbnailUrl
+
   return (
     <div className="relative flex min-h-screen flex-col bg-white text-[#222226]">
       <div className="mx-auto flex w-full max-w-[402px] grow flex-col px-5 pt-6 pb-8">
@@ -30,9 +35,22 @@ export function GuestOnboardingView({
 
         <main className="grow">
           <section className="mt-10 flex flex-col items-center gap-2">
-            <div className="size-[140px] overflow-hidden rounded-[26.667px] bg-[#a2a5ad]">
+            <div className="relative size-[140px] overflow-hidden rounded-[26.667px] bg-[#e6e8ee]">
+              {(!thumbnailUrl || !coverLoaded) && (
+                <div
+                  aria-hidden="true"
+                  className="shimmer absolute inset-0 h-full w-full"
+                />
+              )}
               {thumbnailUrl && (
-                <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                <img
+                  src={thumbnailUrl}
+                  alt=""
+                  onLoad={() => setLoadedSrc(thumbnailUrl)}
+                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${
+                    coverLoaded ? 'opacity-100' : 'opacity-0'
+                  }`}
+                />
               )}
             </div>
             <div className="flex w-full flex-col items-center">

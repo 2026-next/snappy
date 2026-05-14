@@ -42,6 +42,7 @@ export function AlbumPhotosHeader({
           src={SHARE_ICON}
           alt=""
           className="h-6 w-6"
+          style={{ filter: 'brightness(0)' }}
           aria-hidden="true"
         />
       </button>

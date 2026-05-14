@@ -86,6 +86,7 @@ export function HostAlbumSharePage() {
         <AlbumShareView
           albumName={event.name}
           shareUrl={event.qrLink}
+          coverUrl={event.thumbnailUrl ?? null}
           onGoHome={() => navigate('/')}
         />
       )}

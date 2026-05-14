@@ -90,6 +90,7 @@ export function AlbumCreatePage() {
         <AlbumShareView
           albumName={createdEvent.name}
           shareUrl={createdEvent.qrLink}
+          coverUrl={createdEvent.thumbnailUrl ?? null}
           onGoHome={handleGoHome}
         />
       ) : (

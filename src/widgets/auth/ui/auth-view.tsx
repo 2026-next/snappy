@@ -69,7 +69,7 @@ export function AuthView() {
             className="flex h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-[#fbe300] text-[18px] font-semibold text-[#3b1e1e] transition-opacity hover:opacity-90 active:opacity-80"
           >
             <img src={KAKAO_ICON} alt="" className="h-6 w-6" aria-hidden="true" />
-            kakao로 시작하기
+            Kakao로 시작하기
           </button>
           <button
             type="button"

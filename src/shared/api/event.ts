@@ -14,6 +14,8 @@ export type EventResponse = {
   ownerId: string
   accessCode: string
   qrLink: string
+  thumbnailUrl?: string | null
+  thumbnailObjectKey?: string | null
 }
 
 export function createEvent(input: CreateEventInput): Promise<EventResponse> {
