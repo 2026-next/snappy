@@ -16,6 +16,7 @@ export const RELATION_LABELS: Record<RelationCode, string> = {
 
 export type RawPhoto = {
   id: string
+  eventId?: string | null
   fileKey?: string | null
   url?: string | null
   thumbnailUrl?: string | null
@@ -52,6 +53,7 @@ export type RawPhoto = {
 
 export type PhotoSummary = {
   id: string
+  eventId: string | null
   url: string | null
   thumbnailUrl: string | null
   width: number | null
@@ -171,6 +173,7 @@ export function normalizePhoto(raw: RawPhoto): PhotoSummary {
   )
   return {
     id: String(raw.id),
+    eventId: raw.eventId ?? null,
     url: raw.url ?? raw.signedUrl ?? raw.originalPhotoUrl ?? null,
     thumbnailUrl: raw.thumbnailUrl ?? raw.url ?? raw.signedUrl ?? raw.originalPhotoUrl ?? null,
     width: raw.width ?? null,
