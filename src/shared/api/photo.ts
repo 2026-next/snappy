@@ -122,6 +122,22 @@ export type CreateUploadUrlsInput = {
   mimeType: string
 }
 
+export type CreateHostUploadUrlsInput = {
+  eventId: string
+  fileCount: number
+  mimeType: string
+}
+
+export type CreateHostPhotoInput = {
+  eventId: string
+  fileKey: string
+  mimeType: string
+  fileSizeBytes?: number
+  width?: number
+  height?: number
+  exifTakenAt?: string
+}
+
 export type UploadUrlEntry = {
   fileKey: string
   uploadUrl: string
@@ -135,6 +151,14 @@ export type CreatePhotoInput = {
   width?: number
   height?: number
   exifTakenAt?: string
+}
+
+export type ReplacePhotoFileInput = {
+  fileKey: string
+  mimeType: string
+  fileSizeBytes?: number
+  width?: number
+  height?: number
 }
 
 function buildQuery(params: Record<string, string | number | undefined>): string {
@@ -500,6 +524,22 @@ export async function createUploadUrls(
   return Array.isArray(raw) ? raw : (raw.uploadUrls ?? raw.items ?? [])
 }
 
+// Host-side equivalent of createUploadUrls. /photo/upload-url is guest-only
+// (assertGuest) on the backend; hosts must call this dedicated endpoint
+// with an eventId they own. Used by the host edit save flow.
+export async function createHostUploadUrls(
+  input: CreateHostUploadUrlsInput,
+): Promise<UploadUrlEntry[]> {
+  const raw = await apiFetch<UploadUrlEntry[] | { uploadUrls?: UploadUrlEntry[]; items?: UploadUrlEntry[] }>(
+    `/photo/host/upload-url`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  )
+  return Array.isArray(raw) ? raw : (raw.uploadUrls ?? raw.items ?? [])
+}
+
 export async function createPhoto(
   input: CreatePhotoInput,
 ): Promise<PhotoSummary | null> {
@@ -507,5 +547,35 @@ export async function createPhoto(
     method: 'POST',
     body: JSON.stringify(input),
   })
+  return raw ? normalizePhoto(raw) : null
+}
+
+// Host-side counterpart of createPhoto. The original /photo is guest-only;
+// hosts use this to create a new photo record in an event they own (no
+// uploadedByGuestId). Pair with createHostUploadUrls for the host edit flow.
+export async function createHostPhoto(
+  input: CreateHostPhotoInput,
+): Promise<PhotoSummary | null> {
+  const raw = await apiFetch<RawPhoto | null>(`/photo/host`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return raw ? normalizePhoto(raw) : null
+}
+
+// Override the file of an existing photo while preserving its id and metadata.
+// Spec: docs/photo-replace-api-spec.md. Backend endpoint may not yet be live —
+// callers should handle 404 by surfacing a "not yet available" message.
+export async function replacePhotoFile(
+  photoId: string,
+  input: ReplacePhotoFileInput,
+): Promise<PhotoSummary | null> {
+  const raw = await apiFetch<RawPhoto | null>(
+    `/photo/${encodeURIComponent(photoId)}/replace`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  )
   return raw ? normalizePhoto(raw) : null
 }

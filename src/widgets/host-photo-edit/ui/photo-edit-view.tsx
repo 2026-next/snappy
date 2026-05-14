@@ -11,7 +11,13 @@ import {
   pollAnalysisJob,
   pollEnhancementJob,
 } from '@/shared/api/photo-ai'
-import { uploadFiles } from '@/shared/api/upload'
+import { ApiError } from '@/shared/api/client'
+import {
+  createHostPhoto,
+  createHostUploadUrls,
+  replacePhotoFile,
+} from '@/shared/api/photo'
+import { putToSignedUrl } from '@/shared/api/upload'
 import { bakeEditedPhoto } from '@/widgets/host-photo-edit/lib/bake-photo'
 
 type Tab = 'filter' | 'color' | 'crop' | 'auto' | 'element' | 'portrait'
@@ -372,6 +378,15 @@ export function PhotoEditView() {
     return () => vv.removeEventListener('resize', onResize)
   }, [])
 
+  // Auto-grow the AI prompt textarea to fit its content (bounded by max-h CSS).
+  const promptRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const el = promptRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [elementInput])
+
   const isKeyboardOpen = isInputFocused && keyboardHeight > 50
 
   // Pinch-to-zoom for crop tab
@@ -628,21 +643,64 @@ export function PhotoEditView() {
     setSaveError(null)
     setIsSaveOptionsOpen(true)
   }
-  const persistEdits = async () => {
+  const persistEdits = async (mode: 'new' | 'replace') => {
     if (isSaving) return
     setSaveError(null)
     setIsSaving(true)
     try {
-      const { file } = await bakeEditedPhoto({
+      if (!albumId) {
+        throw new Error('앨범 정보를 찾을 수 없어요')
+      }
+      const baked = await bakeEditedPhoto({
         photoUrl,
         cssFilter: combinedFilter,
       })
-      const result = await uploadFiles([file])
-      if (result.failures.length > 0 || result.uploaded.length === 0) {
-        const reason = result.failures[0]?.error
-        throw reason instanceof Error
-          ? reason
-          : new Error('보정된 사진을 저장하지 못했어요')
+      const mimeType = baked.file.type || 'image/jpeg'
+      const [entry] = await createHostUploadUrls({
+        eventId: albumId,
+        fileCount: 1,
+        mimeType,
+      })
+      if (!entry) {
+        throw new Error('업로드 URL을 발급받지 못했어요')
+      }
+      await putToSignedUrl(entry.uploadUrl, baked.file, mimeType)
+
+      try {
+        if (mode === 'new') {
+          await createHostPhoto({
+            eventId: albumId,
+            fileKey: entry.fileKey,
+            mimeType,
+            fileSizeBytes: baked.file.size,
+            width: baked.width,
+            height: baked.height,
+          })
+        } else {
+          if (!photoId) {
+            throw new Error('원본 사진 정보를 찾을 수 없어요')
+          }
+          await replacePhotoFile(photoId, {
+            fileKey: entry.fileKey,
+            mimeType,
+            fileSizeBytes: baked.file.size,
+            width: baked.width,
+            height: baked.height,
+          })
+        }
+      } catch (err) {
+        if (err instanceof ApiError) {
+          if (err.status === 403) {
+            throw new Error('이 사진을 수정할 권한이 없어요')
+          }
+          if (err.status === 404) {
+            throw new Error('사진을 찾을 수 없거나 삭제되었어요')
+          }
+          if (err.status === 409 || err.status === 422) {
+            throw new Error('보정본을 저장하지 못했어요. 다시 시도해 주세요')
+          }
+        }
+        throw err
       }
       setIsSaveOptionsOpen(false)
       setIsSaveCompleteOpen(true)
@@ -653,10 +711,10 @@ export function PhotoEditView() {
     }
   }
   const handleSaveAsNew = () => {
-    void persistEdits()
+    void persistEdits('new')
   }
   const handleSaveAsExisting = () => {
-    void persistEdits()
+    void persistEdits('replace')
   }
   const handleSaveCompleteHome = () => {
     setIsSaveCompleteOpen(false)
@@ -1203,15 +1261,16 @@ export function PhotoEditView() {
             )
           )}
           {/* 입력 + AI 버튼 행 */}
-          <div className="flex items-center gap-[4px]">
-            <input
-              type="text"
+          <div className="flex items-end gap-[4px]">
+            <textarea
+              ref={promptRef}
+              rows={1}
               value={elementInput}
               onChange={(e) => setElementInput(e.target.value)}
               onFocus={() => setIsInputFocused(true)}
               onBlur={() => setIsInputFocused(false)}
               placeholder="요소를 직접 입력해보세요"
-              className="h-[38px] flex-1 rounded-[6px] bg-[#f4f6fa] px-[10px] text-[14px] tracking-[-0.28px] text-[#222226] placeholder:text-[#a2a5ad] focus:outline-none"
+              className="min-h-[38px] max-h-[160px] flex-1 resize-none overflow-y-auto rounded-[6px] bg-[#f4f6fa] px-[10px] py-[9px] text-[14px] leading-[20px] tracking-[-0.28px] text-[#222226] placeholder:text-[#a2a5ad] focus:outline-none"
             />
             <button
               type="button"
