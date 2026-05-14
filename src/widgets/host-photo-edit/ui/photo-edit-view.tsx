@@ -728,24 +728,24 @@ export function PhotoEditView() {
   const perspVDeg = perspV * 0.5  // slider ±20 → ±10°
   const perspHDeg = perspH * 0.5
 
-  // Minimum scale to fully cover the container after rotation + perspective
+  // Scale-down factor so the rotated + perspective-projected image fits
+  // entirely inside the container (no auto-cropping during tilt adjustment).
   const autoAngleScale = (() => {
     const w = 402, h = 302
-    // rotation coverage
+    // rotation fit — invert the cover formula so the rotated bbox fits inside
     const rad = Math.abs(cropAngle) * (Math.PI / 180)
     const angleScale = rad > 0
-      ? Math.max((w * Math.cos(rad) + h * Math.sin(rad)) / w,
-                 (h * Math.cos(rad) + w * Math.sin(rad)) / h)
+      ? Math.min(w / (w * Math.cos(rad) + h * Math.sin(rad)),
+                 h / (h * Math.cos(rad) + w * Math.sin(rad)))
       : 1
-    // perspective coverage — exact formula: s = 1 / (cosθ − dim/2·sinθ/d)
-    // (+1.5% margin for sub-pixel rendering)
+    // perspective fit — closer edge projection: s = 1 / (cosθ + dim/2·sinθ/d)
     const vRad = Math.abs(perspVDeg * Math.PI / 180)
     const hRad = Math.abs(perspHDeg * Math.PI / 180)
-    const perspVScale = vRad > 0 ? 1.015 / (Math.cos(vRad) - (h / 2) * Math.sin(vRad) / PERSP_D) : 1
-    const perspHScale = hRad > 0 ? 1.015 / (Math.cos(hRad) - (w / 2) * Math.sin(hRad) / PERSP_D) : 1
-    return Math.max(1, angleScale, perspVScale, perspHScale)
+    const perspVScale = vRad > 0 ? 1 / (Math.cos(vRad) + (h / 2) * Math.sin(vRad) / PERSP_D) : 1
+    const perspHScale = hRad > 0 ? 1 / (Math.cos(hRad) + (w / 2) * Math.sin(hRad) / PERSP_D) : 1
+    return Math.min(1, angleScale, perspVScale, perspHScale)
   })()
-  const effectiveCropScale = Math.max(cropScale, autoAngleScale)
+  const effectiveCropScale = cropScale * autoAngleScale
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[402px] flex-col bg-white pb-[110px]">
@@ -874,9 +874,9 @@ export function PhotoEditView() {
               transform: `perspective(${PERSP_D}px) rotateX(${perspVDeg}deg) rotateY(${perspHDeg}deg) rotate(${cropAngle}deg) scale(${effectiveCropScale})`,
               ...(combinedFilter ? { filter: combinedFilter } : {}),
             }}
-            className={`h-full w-full transition-[filter] duration-200 ${
-              activeTab === 'crop' ? 'object-cover' : 'object-contain'
-            } ${isAiProcessing ? 'blur-md scale-105' : ''}`}
+            className={`h-full w-full object-contain transition-[filter] duration-200 ${
+              isAiProcessing ? 'blur-md scale-105' : ''
+            }`}
             aria-hidden="true"
           />
           {isAiProcessing && (
