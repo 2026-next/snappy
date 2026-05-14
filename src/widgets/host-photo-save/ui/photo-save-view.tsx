@@ -307,11 +307,11 @@ export function PhotoSaveView() {
             className="flex w-full flex-col items-center justify-center gap-[10px] bg-white p-[14px]"
             style={{ filter: 'drop-shadow(0px 4px 5px rgba(0,0,0,0.15))' }}
           >
-            <div className="relative aspect-[300/225] w-full overflow-hidden bg-[#e6e8ee]">
+            <div className="relative w-full overflow-hidden bg-[#e6e8ee]">
               {!imgLoaded && (
                 <div
                   aria-hidden="true"
-                  className="shimmer absolute inset-0 h-full w-full"
+                  className="shimmer aspect-[4/3] w-full"
                 />
               )}
               {photoSrc && (
@@ -319,8 +319,8 @@ export function PhotoSaveView() {
                   src={photoSrc}
                   alt=""
                   onLoad={() => setImgLoaded(true)}
-                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${
-                    imgLoaded ? 'opacity-100' : 'opacity-0'
+                  className={`block h-auto w-full transition-opacity duration-200 ${
+                    imgLoaded ? 'opacity-100' : 'pointer-events-none absolute inset-0 opacity-0'
                   }`}
                   aria-hidden="true"
                 />
@@ -376,11 +376,11 @@ export function PhotoSaveView() {
         </div>
       ) : (
         <div className="mt-6 flex flex-col items-center px-5">
-          <div className="relative aspect-[362/272] w-full overflow-hidden bg-[#e6e8ee]">
+          <div className="relative w-full overflow-hidden bg-[#e6e8ee]">
             {!imgLoaded && (
               <div
                 aria-hidden="true"
-                className="shimmer absolute inset-0 h-full w-full"
+                className="shimmer aspect-[4/3] w-full"
               />
             )}
             {photoSrc && (
@@ -388,8 +388,8 @@ export function PhotoSaveView() {
                 src={photoSrc}
                 alt=""
                 onLoad={() => setImgLoaded(true)}
-                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${
-                  imgLoaded ? 'opacity-100' : 'opacity-0'
+                className={`block h-auto w-full transition-opacity duration-200 ${
+                  imgLoaded ? 'opacity-100' : 'pointer-events-none absolute inset-0 opacity-0'
                 }`}
                 aria-hidden="true"
               />
