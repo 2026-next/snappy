@@ -7,7 +7,7 @@
 
 | **소개 영상**                         |
 | ---------------------------------------------- |
-| [![demo](https://github.com/user-attachments/assets/0ba118bc-1a53-4952-975b-b8369167d803)](유튜브링크) |
+| [![demo](https://github.com/user-attachments/assets/0ba118bc-1a53-4952-975b-b8369167d803)](https://youtu.be/aWSkpL84pOg) |
 
 
 ## Problems & Solutions
@@ -24,4 +24,4 @@
 
 
 ## 👥 People
-**김민준  |  최혜윤   |  김가희   |  한서진   |  김재민**
+**김민준  |  최혜윤  |  김가희  |  한서진  |  김재민**
