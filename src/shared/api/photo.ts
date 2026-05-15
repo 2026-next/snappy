@@ -2,6 +2,8 @@ import { apiFetch } from '@/shared/api/client'
 
 export type SortOrder = 'asc' | 'desc'
 
+export type SortBy = 'uploadedAt' | 'takenAt'
+
 export type RelationCode = 1 | 2 | 3 | 4 | 5 | 6 | 7
 
 export const RELATION_LABELS: Record<RelationCode, string> = {
@@ -78,6 +80,7 @@ export type AlbumQuery = {
   page?: number
   offset?: number
   order?: SortOrder
+  sortBy?: SortBy
 }
 
 export type AlbumPage = {
@@ -258,6 +261,7 @@ export async function getAlbum(query: AlbumQuery): Promise<AlbumPage> {
     page: query.page,
     offset: query.offset,
     order: query.order,
+    sortBy: query.sortBy,
   })
   const raw = await apiFetch<AlbumRawResponse>(`/photo/views${qs}`)
   return normalizeAlbumResponse(raw)

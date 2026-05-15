@@ -137,7 +137,9 @@ export function AlbumPhotosView() {
     if (!albumId) return
     if (category === 'all' || category === 'favorite') {
       if (album.loadedEventId !== albumId && !album.isLoading) {
-        void fetchAlbum(albumId, sort === 'oldest' ? 'asc' : 'desc')
+        const order = sort === 'oldest' ? 'asc' : 'desc'
+        const sortBy = sort === 'taken' ? 'takenAt' : 'uploadedAt'
+        void fetchAlbum(albumId, order, sortBy)
       }
     }
     if (category === 'timeline') {
@@ -324,7 +326,9 @@ export function AlbumPhotosView() {
     setSort(value)
     setOverlay('none')
     if (albumId) {
-      void fetchAlbum(albumId, value === 'oldest' ? 'asc' : 'desc')
+      const order = value === 'oldest' ? 'asc' : 'desc'
+      const sortBy = value === 'taken' ? 'takenAt' : 'uploadedAt'
+      void fetchAlbum(albumId, order, sortBy)
     }
   }
   const handleCreateGroup = async (name: string) => {

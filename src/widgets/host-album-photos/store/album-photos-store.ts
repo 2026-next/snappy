@@ -41,7 +41,7 @@ type AlbumPhotosState = {
   search: SearchState
   uploaderSearchTerm: string
 
-  fetchAlbum: (eventId: string, order?: SortOrder) => Promise<void>
+  fetchAlbum: (eventId: string, order?: SortOrder, sortBy?: 'uploadedAt' | 'takenAt') => Promise<void>
   fetchTimeline: (eventId: string) => Promise<void>
   fetchUploaderGrouping: (eventId: string) => Promise<void>
   fetchSimilarComposition: (eventId: string) => Promise<void>
@@ -125,11 +125,11 @@ export const useAlbumPhotosStore = create<AlbumPhotosState>((set, get) => ({
   },
   uploaderSearchTerm: '',
 
-  fetchAlbum: async (eventId, order = 'desc') => {
+  fetchAlbum: async (eventId, order = 'desc', sortBy = 'uploadedAt') => {
     if (get().album.isLoading) return
     set((state) => ({ album: { ...state.album, isLoading: true, error: null } }))
     try {
-      const page: AlbumPage = await getAlbum({ eventId, order })
+      const page: AlbumPage = await getAlbum({ eventId, order, sortBy })
       set({
         album: {
           data: { items: page.items, total: page.total },
