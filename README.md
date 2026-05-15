@@ -1,36 +1,23 @@
-# Snappy
+# 2026 NE:XT CONTEST
 
-Starter React application built with Vite, TypeScript, Tailwind CSS, React Router, ESLint, Prettier, and Vitest.
+## Snappy
 
-## Scripts
+📸 함께 찍는 즐거움부터 AI가 완성하는 인생샷까지, 우리만의 순간을 가장 완벽하게 남기는 서비스
 
-- `pnpm dev` starts the Vite development server
-- `pnpm build` creates a production build
-- `pnpm preview` serves the production build locally
-- `pnpm lint` runs ESLint
-- `pnpm test` runs Vitest in watch mode
-- `pnpm test:run` runs Vitest once
-- `pnpm format` formats the repository with Prettier
-- `pnpm format:check` checks formatting without writing changes
+| **소개 영상**                         |
+| ---------------------------------------------- |
+| [![demo](https://github.com/user-attachments/assets/0ba118bc-1a53-4952-975b-b8369167d803)](유튜브링크) |
 
-## Deployment
+> 직접 사용해보기 [Snappyku.site](https://snappyku.site/)
 
-- `.github/workflows/deploy.yml` deploys the built frontend on every push to `main` and can also be run manually.
-- `scripts/deploy-static.sh` pushes `dist/` to the production server over SSH with `rsync --delete`.
-- Required GitHub repository variables:
-  - `SNAPPY_SSH_HOST`
-  - `SNAPPY_SSH_USER`
-  - `SNAPPY_SSH_PORT`
-  - `SNAPPY_DEPLOY_PATH`
-- Required GitHub repository secrets:
-  - `SNAPPY_DEPLOY_KEY`
-  - `SNAPPY_SSH_KNOWN_HOSTS`
+## Problems & Solutions
 
-## Source layout
+### Problems 
+✔ 결혼식, 졸업식 등의 행사에서 사진을 일일이 전달받는 번거로움,
+✔ 수백 수천장의 사진을 정리하는 귀찮음,
+✔ 부담되는 보정 비용 혹은 하나하나 선택하고 보정해야하는 어려움.
 
-- `src/app` app composition, providers, router, and global styles
-- `src/pages` route-level screens
-- `src/features` feature-focused UI and local data
-- `src/widgets` larger composed sections
-- `src/shared` reusable config, UI, and utilities
-- `src/test` test setup and helpers
+### Solutions (Snappy의 접근 방식)
+💡 QR 혹은 링크로 접속할 수 있는 간편한 업로드 채널
+💡 '타임라인' '업로더별' 사진 확인 혹은 필터링 및 정렬 기능을 통한 손쉬운 사진 셀렉
+💡 AI 보정 요소 추천 및 프롬프트를 이용한 빠르고 퀄리티 높은 보정
