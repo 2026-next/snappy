@@ -178,6 +178,16 @@ export const useGroupStore = create<GroupStoreState>((set, get) => ({
         }
       })
       await get().fetchGroupPhotos(groupId)
+      // Refresh the group's cover thumbnail so the group list view reflects
+      // the freshly added photo. Otherwise the cover stays at whatever the
+      // previous fetchGroups pass cached (or null for previously empty groups).
+      const fresh = get().groupPhotos[groupId]
+      const cover = fresh && fresh.length > 0 ? fresh[0].src : null
+      set((state) => ({
+        groups: state.groups.map((g) =>
+          g.id === groupId ? { ...g, coverSrc: cover } : g,
+        ),
+      }))
     } catch (error) {
       set({
         groupPhotosError: errorMessage(
