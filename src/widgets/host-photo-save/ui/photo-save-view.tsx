@@ -151,7 +151,10 @@ export function PhotoSaveView() {
   const [tab, setTab] = useState<SaveTab>('polaroid')
   const [showMessage, setShowMessage] = useState(true)
   const [showUploader, setShowUploader] = useState(true)
-  const [showTakenAt, setShowTakenAt] = useState(false)
+  // "촬영 날짜 보이기" toggle is hidden from the UI until the underlying
+  // taken-at rendering is fixed; the state is pinned to false so the preview
+  // and bake paths simply skip it.
+  const showTakenAt = false
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [imgLoaded, setImgLoaded] = useState(false)
@@ -365,11 +368,6 @@ export function PhotoSaveView() {
                 label="업로더 이름 보이기"
                 checked={showUploader}
                 onChange={setShowUploader}
-              />
-              <ToggleRow
-                label="촬영 날짜 보이기"
-                checked={showTakenAt}
-                onChange={setShowTakenAt}
               />
             </div>
           </div>
