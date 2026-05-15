@@ -143,7 +143,7 @@ async function downloadPolaroid(
 
 export function PhotoSaveView() {
   const navigate = useNavigate()
-  const { photoId } = useParams<{ photoId: string }>()
+  const { albumId, photoId } = useParams<{ albumId: string; photoId: string }>()
 
   const [photo, setPhoto] = useState<PhotoDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -233,7 +233,13 @@ export function PhotoSaveView() {
 
   const handleGoHome = () => {
     setIsCompleteModalOpen(false)
-    navigate('/')
+    // "홈으로 가기" in this flow means "back to the album", not the app root.
+    // Fall back to root only when the route param is somehow missing.
+    if (albumId) {
+      navigate(`/host/albums/${albumId}`, { replace: true })
+    } else {
+      navigate('/', { replace: true })
+    }
   }
   const handleGoBack = () => {
     setIsCompleteModalOpen(false)
